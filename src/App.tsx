@@ -499,7 +499,7 @@ export const App: React.FC = () => {
                         Can select framing
                       </div>
                       <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                        Custom rectangular crop box. Zoom in on subjects or remove movie black bars.
+                        Custom rectangular crop box. Zoom in on any subject or aspect ratio.
                       </p>
                     </div>
 

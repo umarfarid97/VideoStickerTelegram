@@ -4,9 +4,7 @@ import {
   Check,
   RotateCcw,
   Maximize2,
-  Minimize2,
   X,
-  Sliders,
   Square,
 } from 'lucide-react';
 import type { CropArea } from '../utils/converter';
@@ -134,28 +132,6 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
   const handleSquareCenter = () => {
     setAspectMode('1:1');
     setLocalCrop(getCenteredSquareCrop());
-  };
-
-  const handleRemoveTopBottomBars = () => {
-    setAspectMode('free');
-    // Standard 2.35:1 movie letterbox inside 16:9 frame is ~12-14% black bar top and bottom
-    setLocalCrop({
-      x: 0,
-      y: 0.12,
-      width: 1,
-      height: 0.76,
-    });
-  };
-
-  const handleRemoveSideBars = () => {
-    setAspectMode('free');
-    // 4:3 pillarbox in 16:9 video is ~12.5% bar left and right
-    setLocalCrop({
-      x: 0.125,
-      y: 0,
-      width: 0.75,
-      height: 1,
-    });
   };
 
   // Mouse / Touch handlers for dragging and resizing the crop box
@@ -555,42 +531,6 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
                   <span className="font-medium text-[11px]">Full Frame</span>
                 </button>
               </div>
-            </div>
-
-            {/* Black Bar Removal Presets */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
-              <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-amber-600" />
-                <span>Remove Black Bars</span>
-              </span>
-
-              <button
-                type="button"
-                onClick={handleRemoveTopBottomBars}
-                className="w-full p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200 flex items-center justify-between transition text-left cursor-pointer"
-              >
-                <div>
-                  <div className="font-medium text-xs">Trim Movie Letterbox</div>
-                  <div className="text-[10px] text-amber-700">
-                    Crops top & bottom bars (2.35:1)
-                  </div>
-                </div>
-                <Minimize2 className="w-4 h-4 shrink-0 text-amber-600" />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleRemoveSideBars}
-                className="w-full p-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-between transition text-left shadow-2xs cursor-pointer"
-              >
-                <div>
-                  <div className="font-medium text-xs">Trim Side Pillarbox</div>
-                  <div className="text-[10px] text-slate-500">
-                    Crops left & right vertical bars
-                  </div>
-                </div>
-                <Minimize2 className="w-4 h-4 shrink-0 text-slate-500" />
-              </button>
             </div>
 
             {/* Telegram 512px rule explanation */}
