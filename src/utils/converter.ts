@@ -41,16 +41,20 @@ export function isWebCodecsSupported(): boolean {
   return typeof window !== 'undefined' && typeof VideoEncoder !== 'undefined';
 }
 
+/**
+ * Calculates compliant sticker dimensions according to Telegram's 512px rule
+ * Enforces even numbers for both width and height (required by VP9 codecs)
+ */
 export function calculateDimensions(
   origWidth: number,
   origHeight: number,
   mode: 'fit' | 'pad' | 'crop'
 ): DimensionInfo {
   if (mode === 'pad') {
-    // 512x512 with transparent letterbox/pillarbox
+    // 512x512 with transparent padding
     const scale = Math.min(512 / origWidth, 512 / origHeight);
-    const drawWidth = Math.max(2, Math.round(origWidth * scale / 2) * 2);
-    const drawHeight = Math.max(2, Math.round(origHeight * scale / 2) * 2);
+    const drawWidth = Math.max(2, Math.round((origWidth * scale) / 2) * 2);
+    const drawHeight = Math.max(2, Math.round((origHeight * scale) / 2) * 2);
     const drawX = Math.round((512 - drawWidth) / 2);
     const drawY = Math.round((512 - drawHeight) / 2);
     return {
@@ -59,10 +63,10 @@ export function calculateDimensions(
       drawX,
       drawY,
       drawWidth,
-      drawHeight
+      drawHeight,
     };
   } else if (mode === 'crop') {
-    // 512x512 filled (cropped centered)
+    // 512x512 filled (centered crop)
     const scale = Math.max(512 / origWidth, 512 / origHeight);
     const drawWidth = Math.round(origWidth * scale);
     const drawHeight = Math.round(origHeight * scale);
@@ -74,7 +78,7 @@ export function calculateDimensions(
       drawX,
       drawY,
       drawWidth,
-      drawHeight
+      drawHeight,
     };
   } else {
     // 'fit' - Telegram spec: one side exactly 512, the other 512 or less
@@ -82,10 +86,12 @@ export function calculateDimensions(
     let canvasHeight = 512;
     if (origWidth >= origHeight) {
       canvasWidth = 512;
-      canvasHeight = Math.max(2, Math.round((512 * origHeight / origWidth) / 2) * 2);
+      canvasHeight = Math.max(2, Math.round(((512 * origHeight) / origWidth) / 2) * 2);
+      if (canvasHeight > 512) canvasHeight = 512;
     } else {
       canvasHeight = 512;
-      canvasWidth = Math.max(2, Math.round((512 * origWidth / origHeight) / 2) * 2);
+      canvasWidth = Math.max(2, Math.round(((512 * origWidth) / origHeight) / 2) * 2);
+      if (canvasWidth > 512) canvasWidth = 512;
     }
     return {
       canvasWidth,
@@ -93,38 +99,88 @@ export function calculateDimensions(
       drawX: 0,
       drawY: 0,
       drawWidth: canvasWidth,
-      drawHeight: canvasHeight
+      drawHeight: canvasHeight,
     };
   }
 }
 
-async function findSupportedVp9Codec(width: number, height: number, bitrate: number, fps: number): Promise<string> {
-  const candidates = [
-    'vp09.00.10.08',
+/**
+ * Finds the best working VP9 encoder configuration.
+ * Tests Level 3.1 / 4.1 first because Level 1.0 has a hard 256x144 pixel limit.
+ * Also tests whether alpha: 'keep' is supported, falling back gracefully to alpha: 'discard'.
+ */
+async function getBestEncoderConfig(
+  width: number,
+  height: number,
+  bitrate: number,
+  fps: number,
+  wantsAlpha: boolean
+): Promise<{ config: VideoEncoderConfig; actualAlpha: boolean }> {
+  // Level 3.1 supports up to 1280x720@30fps, easily fitting 512x512
+  const candidateCodecs = [
+    'vp09.00.31.08',
     'vp09.00.41.08',
-    'vp09.02.10.10',
-    'vp9'
+    'vp09.00.30.08',
+    'vp09.00.21.08',
+    'vp9',
   ];
 
-  for (const codec of candidates) {
-    try {
-      const config = {
+  const accelOptions: ('no-preference' | 'prefer-software')[] = [
+    'no-preference',
+    'prefer-software',
+  ];
+
+  // Try with alpha: 'keep' if requested
+  if (wantsAlpha) {
+    for (const hw of accelOptions) {
+      for (const codec of candidateCodecs) {
+        const candidate: VideoEncoderConfig = {
+          codec,
+          width,
+          height,
+          bitrate,
+          framerate: fps,
+          hardwareAcceleration: hw,
+          alpha: 'keep',
+        };
+        try {
+          const check = await VideoEncoder.isConfigSupported(candidate);
+          if (check.supported) {
+            return { config: candidate, actualAlpha: true };
+          }
+        } catch {
+          // Continue testing
+        }
+      }
+    }
+  }
+
+  // Standard safe configuration (alpha: 'discard')
+  for (const hw of accelOptions) {
+    for (const codec of candidateCodecs) {
+      const candidate: VideoEncoderConfig = {
         codec,
         width,
         height,
         bitrate,
-        framerate: fps
+        framerate: fps,
+        hardwareAcceleration: hw,
+        alpha: 'discard',
       };
-      const check = await VideoEncoder.isConfigSupported(config);
-      if (check.supported) {
-        return codec;
+      try {
+        const check = await VideoEncoder.isConfigSupported(candidate);
+        if (check.supported) {
+          return { config: candidate, actualAlpha: false };
+        }
+      } catch {
+        // Continue testing
       }
-    } catch {
-      // Continue testing
     }
   }
 
-  throw new Error('Your browser does not support VP9 video encoding via WebCodecs. Please try Google Chrome, Microsoft Edge, or a modern Chromium browser.');
+  throw new Error(
+    'No supported VP9 video encoder configuration found. Please verify that hardware/software VP9 is enabled in your browser.'
+  );
 }
 
 export interface ProgressCallback {
@@ -165,26 +221,31 @@ export async function convertVideoToWebM(
   const dims = calculateDimensions(video.videoWidth, video.videoHeight, options.mode);
   const fps = Math.min(30, Math.max(10, options.fps || 30));
 
-  // Determine bitrate based on quality and duration to guarantee < 256 KB
-  // Telegram limit is 256 KB (262,144 bytes).
-  // Target safe size: ~200 KB = 1,600,000 bits.
+  // Determine bitrate based on quality and duration to stay strictly under 256 KB
   let targetBytes = 210 * 1024;
-  if (options.quality === 'high') targetBytes = 235 * 1024;
-  if (options.quality === 'low') targetBytes = 160 * 1024;
+  if (options.quality === 'high') targetBytes = 230 * 1024;
+  if (options.quality === 'low') targetBytes = 150 * 1024;
 
-  const targetBitrate = Math.max(100_000, Math.floor((targetBytes * 8) / segmentDuration));
+  const targetBitrate = Math.max(80_000, Math.floor((targetBytes * 8) / segmentDuration));
 
-  const codec = await findSupportedVp9Codec(dims.canvasWidth, dims.canvasHeight, targetBitrate, fps);
+  // In pad mode, user might want alpha transparency
+  const wantsAlpha = options.mode === 'pad';
+  const { config: encoderConfig, actualAlpha } = await getBestEncoderConfig(
+    dims.canvasWidth,
+    dims.canvasHeight,
+    targetBitrate,
+    fps,
+    wantsAlpha
+  );
 
   // Setup offscreen canvas
   const canvas = document.createElement('canvas');
   canvas.width = dims.canvasWidth;
   canvas.height = dims.canvasHeight;
-  const ctx = canvas.getContext('2d', { alpha: true, willReadFrequently: true });
+  const ctx = canvas.getContext('2d', { alpha: actualAlpha, willReadFrequently: true });
   if (!ctx) throw new Error('Could not create 2D canvas context.');
 
   const target = new ArrayBufferTarget();
-  const hasAlpha = options.mode === 'pad'; // Pad mode has transparent padding
 
   const muxer = new Muxer({
     target,
@@ -193,30 +254,21 @@ export async function convertVideoToWebM(
       width: dims.canvasWidth,
       height: dims.canvasHeight,
       frameRate: fps,
-      alpha: hasAlpha
+      alpha: actualAlpha,
     },
-    firstTimestampBehavior: 'offset'
+    firstTimestampBehavior: 'offset',
   });
 
-  let encoderError: Error | null = null;
+  let encoderError: any = null;
   const encoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error: (err) => {
       encoderError = err;
-      console.error('Encoder error:', err);
-    }
+      console.error('VideoEncoder error callback:', err);
+    },
   });
 
-  await encoder.configure({
-    codec,
-    width: dims.canvasWidth,
-    height: dims.canvasHeight,
-    bitrate: targetBitrate,
-    framerate: fps,
-    alpha: hasAlpha ? 'keep' : 'discard',
-    bitrateMode: 'variable',
-    latencyMode: 'quality'
-  });
+  encoder.configure(encoderConfig);
 
   const totalFrames = Math.max(1, Math.round(segmentDuration * fps));
   const timeStep = segmentDuration / totalFrames;
@@ -224,7 +276,18 @@ export async function convertVideoToWebM(
   onProgress?.(15, 'Encoding frames...');
 
   for (let i = 0; i < totalFrames; i++) {
-    if (encoderError) throw encoderError;
+    if (encoderError) {
+      throw new Error(`Video encoding failed: ${encoderError.message || encoderError}`);
+    }
+
+    if (encoder.state === 'closed') {
+      throw new Error(`VideoEncoder closed prematurely on frame ${i + 1}/${totalFrames}.`);
+    }
+
+    // Backpressure: pause if encoder queue exceeds 4 pending frames
+    while (encoder.encodeQueueSize > 4) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
 
     const currentTime = start + i * timeStep;
     video.currentTime = currentTime;
@@ -237,14 +300,26 @@ export async function convertVideoToWebM(
       video.addEventListener('seeked', handleSeek, { once: true });
     });
 
-    // Clear canvas (ensures transparent background if padded)
+    // Clear canvas
     ctx.clearRect(0, 0, dims.canvasWidth, dims.canvasHeight);
 
-    // Draw current frame scaled to destination
+    // If not transparent alpha, fill background with black or neutral
+    if (!actualAlpha && options.mode === 'pad') {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, dims.canvasWidth, dims.canvasHeight);
+    }
+
+    // Draw scaled video frame
     ctx.drawImage(
       video,
-      0, 0, video.videoWidth, video.videoHeight,
-      dims.drawX, dims.drawY, dims.drawWidth, dims.drawHeight
+      0,
+      0,
+      video.videoWidth,
+      video.videoHeight,
+      dims.drawX,
+      dims.drawY,
+      dims.drawWidth,
+      dims.drawHeight
     );
 
     const timestampMicroseconds = Math.round(i * (1_000_000 / fps));
@@ -253,20 +328,26 @@ export async function convertVideoToWebM(
     const videoFrame = new VideoFrame(canvas, {
       timestamp: timestampMicroseconds,
       duration: durationMicroseconds,
-      alpha: hasAlpha ? 'keep' : 'discard'
+      alpha: actualAlpha ? 'keep' : 'discard',
     });
 
-    const isKeyframe = i % 30 === 0;
-    encoder.encode(videoFrame, { keyFrame: isKeyframe });
-    videoFrame.close();
+    try {
+      const isKeyframe = i % 30 === 0;
+      encoder.encode(videoFrame, { keyFrame: isKeyframe });
+    } finally {
+      videoFrame.close();
+    }
 
     const progressPercent = Math.round(15 + (i / totalFrames) * 75);
-    onProgress?.(progressPercent, `Processing frame ${i + 1}/${totalFrames}`);
+    onProgress?.(progressPercent, `Encoding frame ${i + 1}/${totalFrames}`);
   }
 
   onProgress?.(92, 'Finalizing WebM container...');
-  await encoder.flush();
-  encoder.close();
+
+  if (encoder.state !== 'closed') {
+    await encoder.flush();
+    encoder.close();
+  }
   muxer.finalize();
   URL.revokeObjectURL(videoUrl);
 
@@ -275,7 +356,14 @@ export async function convertVideoToWebM(
 
   onProgress?.(100, 'Complete!');
 
-  const report = generateValidationReport(blob, segmentDuration, dims.canvasWidth, dims.canvasHeight, fps, codec);
+  const report = generateValidationReport(
+    blob,
+    segmentDuration,
+    dims.canvasWidth,
+    dims.canvasHeight,
+    fps,
+    encoderConfig.codec
+  );
   return { blob, report };
 }
 
@@ -304,7 +392,6 @@ export async function convertGifToWebM(
   const gifHeight = parsedGif.lsd.height;
   const dims = calculateDimensions(gifWidth, gifHeight, options.mode);
 
-  // Calculate natural GIF duration
   let naturalDuration = rawFrames.reduce((acc, f) => acc + (f.delay || 100), 0) / 1000;
   if (naturalDuration <= 0) naturalDuration = rawFrames.length * 0.1;
 
@@ -312,11 +399,9 @@ export async function convertGifToWebM(
   let timeScale = 1;
 
   if (options.speedUpToFit && naturalDuration > 3.0) {
-    // Compress time so entire animation fits in <= 3.0s
     timeScale = 2.95 / naturalDuration;
     effectiveDuration = 2.95;
   } else {
-    // Clamp to 3.0s window
     effectiveDuration = Math.min(3.0, naturalDuration);
   }
 
@@ -324,11 +409,18 @@ export async function convertGifToWebM(
   const totalFramesToOutput = Math.max(1, Math.round(effectiveDuration * fps));
 
   let targetBytes = 210 * 1024;
-  if (options.quality === 'high') targetBytes = 235 * 1024;
-  if (options.quality === 'low') targetBytes = 160 * 1024;
-  const targetBitrate = Math.max(100_000, Math.floor((targetBytes * 8) / effectiveDuration));
+  if (options.quality === 'high') targetBytes = 230 * 1024;
+  if (options.quality === 'low') targetBytes = 150 * 1024;
+  const targetBitrate = Math.max(80_000, Math.floor((targetBytes * 8) / effectiveDuration));
 
-  const codec = await findSupportedVp9Codec(dims.canvasWidth, dims.canvasHeight, targetBitrate, fps);
+  // Determine best encoder configuration
+  const { config: encoderConfig, actualAlpha } = await getBestEncoderConfig(
+    dims.canvasWidth,
+    dims.canvasHeight,
+    targetBitrate,
+    fps,
+    true // GIFs often have transparent pixels
+  );
 
   // Setup compositing canvas for GIF
   const compCanvas = document.createElement('canvas');
@@ -340,7 +432,6 @@ export async function convertGifToWebM(
   const patchCanvas = document.createElement('canvas');
   const patchCtx = patchCanvas.getContext('2d', { willReadFrequently: true });
 
-  // Pre-composite all GIF frames to full frames
   onProgress?.(15, 'Compositing GIF frames...');
   const compositedFrames: { canvas: HTMLCanvasElement; timestampSec: number }[] = [];
   let currentTimestamp = 0;
@@ -349,7 +440,6 @@ export async function convertGifToWebM(
     const frame = rawFrames[i];
     const frameDelaySec = ((frame.delay || 100) / 1000) * (options.speedUpToFit ? timeScale : 1);
 
-    // Prepare patch
     if (frame.dims.width > 0 && frame.dims.height > 0) {
       patchCanvas.width = frame.dims.width;
       patchCanvas.height = frame.dims.height;
@@ -361,7 +451,6 @@ export async function convertGifToWebM(
       }
     }
 
-    // Save frame snapshot
     const frameSnap = document.createElement('canvas');
     frameSnap.width = gifWidth;
     frameSnap.height = gifHeight;
@@ -370,12 +459,11 @@ export async function convertGifToWebM(
 
     compositedFrames.push({
       canvas: frameSnap,
-      timestampSec: currentTimestamp
+      timestampSec: currentTimestamp,
     });
 
     currentTimestamp += frameDelaySec;
 
-    // Handle disposal
     if (frame.disposalType === 2) {
       compCtx.clearRect(frame.dims.left, frame.dims.top, frame.dims.width, frame.dims.height);
     }
@@ -385,7 +473,7 @@ export async function convertGifToWebM(
   const canvas = document.createElement('canvas');
   canvas.width = dims.canvasWidth;
   canvas.height = dims.canvasHeight;
-  const ctx = canvas.getContext('2d', { alpha: true, willReadFrequently: true });
+  const ctx = canvas.getContext('2d', { alpha: actualAlpha, willReadFrequently: true });
   if (!ctx) throw new Error('Could not create output canvas context.');
 
   const target = new ArrayBufferTarget();
@@ -396,39 +484,39 @@ export async function convertGifToWebM(
       width: dims.canvasWidth,
       height: dims.canvasHeight,
       frameRate: fps,
-      alpha: true // GIFs often have transparent areas
+      alpha: actualAlpha,
     },
-    firstTimestampBehavior: 'offset'
+    firstTimestampBehavior: 'offset',
   });
 
-  let encoderError: Error | null = null;
+  let encoderError: any = null;
   const encoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error: (err) => {
       encoderError = err;
-      console.error('Encoder error:', err);
-    }
+      console.error('VideoEncoder error callback:', err);
+    },
   });
 
-  await encoder.configure({
-    codec,
-    width: dims.canvasWidth,
-    height: dims.canvasHeight,
-    bitrate: targetBitrate,
-    framerate: fps,
-    alpha: 'keep',
-    bitrateMode: 'variable',
-    latencyMode: 'quality'
-  });
+  encoder.configure(encoderConfig);
 
   onProgress?.(30, 'Encoding frames into WebM (VP9)...');
 
   for (let i = 0; i < totalFramesToOutput; i++) {
-    if (encoderError) throw encoderError;
+    if (encoderError) {
+      throw new Error(`GIF encoding failed: ${encoderError.message || encoderError}`);
+    }
+
+    if (encoder.state === 'closed') {
+      throw new Error(`VideoEncoder closed prematurely on frame ${i + 1}/${totalFramesToOutput}.`);
+    }
+
+    while (encoder.encodeQueueSize > 4) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
 
     const targetTimeSec = (i / totalFramesToOutput) * effectiveDuration;
 
-    // Find closest composited frame
     let chosen = compositedFrames[0].canvas;
     for (let f = 0; f < compositedFrames.length; f++) {
       if (compositedFrames[f].timestampSec <= targetTimeSec) {
@@ -439,10 +527,22 @@ export async function convertGifToWebM(
     }
 
     ctx.clearRect(0, 0, dims.canvasWidth, dims.canvasHeight);
+
+    if (!actualAlpha && options.mode === 'pad') {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, dims.canvasWidth, dims.canvasHeight);
+    }
+
     ctx.drawImage(
       chosen,
-      0, 0, gifWidth, gifHeight,
-      dims.drawX, dims.drawY, dims.drawWidth, dims.drawHeight
+      0,
+      0,
+      gifWidth,
+      gifHeight,
+      dims.drawX,
+      dims.drawY,
+      dims.drawWidth,
+      dims.drawHeight
     );
 
     const timestampMicroseconds = Math.round(i * (1_000_000 / fps));
@@ -451,20 +551,26 @@ export async function convertGifToWebM(
     const videoFrame = new VideoFrame(canvas, {
       timestamp: timestampMicroseconds,
       duration: durationMicroseconds,
-      alpha: 'keep'
+      alpha: actualAlpha ? 'keep' : 'discard',
     });
 
-    const isKeyframe = i % 30 === 0;
-    encoder.encode(videoFrame, { keyFrame: isKeyframe });
-    videoFrame.close();
+    try {
+      const isKeyframe = i % 30 === 0;
+      encoder.encode(videoFrame, { keyFrame: isKeyframe });
+    } finally {
+      videoFrame.close();
+    }
 
     const progressPercent = Math.round(30 + (i / totalFramesToOutput) * 60);
     onProgress?.(progressPercent, `Encoding frame ${i + 1}/${totalFramesToOutput}`);
   }
 
   onProgress?.(94, 'Finalizing WebM container...');
-  await encoder.flush();
-  encoder.close();
+
+  if (encoder.state !== 'closed') {
+    await encoder.flush();
+    encoder.close();
+  }
   muxer.finalize();
 
   const buffer = target.buffer;
@@ -472,7 +578,14 @@ export async function convertGifToWebM(
 
   onProgress?.(100, 'Complete!');
 
-  const report = generateValidationReport(blob, effectiveDuration, dims.canvasWidth, dims.canvasHeight, fps, codec);
+  const report = generateValidationReport(
+    blob,
+    effectiveDuration,
+    dims.canvasWidth,
+    dims.canvasHeight,
+    fps,
+    encoderConfig.codec
+  );
   return { blob, report };
 }
 
@@ -488,7 +601,7 @@ function generateValidationReport(
   const sizeKB = Math.round((sizeBytes / 1024) * 10) / 10;
   const isSizeValid = sizeBytes <= 256 * 1024;
   const durationSeconds = Math.round(duration * 100) / 100;
-  const isDurationValid = durationSeconds <= 3.05; // 3.0s with tiny tolerance
+  const isDurationValid = durationSeconds <= 3.05;
   const isDimensionsValid = (width === 512 && height <= 512) || (height === 512 && width <= 512);
   const isFpsValid = fps <= 30;
 
@@ -529,6 +642,6 @@ function generateValidationReport(
     codec,
     hasAudio: false,
     errors,
-    warnings
+    warnings,
   };
 }
