@@ -44,6 +44,10 @@ export const App: React.FC = () => {
   const [quality, setQuality] = useState<'high' | 'medium' | 'low'>('medium');
   const [speedUpToFit, setSpeedUpToFit] = useState<boolean>(true);
 
+  // Scrubbing & Active Preview View
+  const [activePreviewTab, setActivePreviewTab] = useState<'source' | 'result'>('source');
+  const [scrubTime, setScrubTime] = useState<number | null>(null);
+
   // Processing state
   const [isConverting, setIsConverting] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
@@ -68,6 +72,8 @@ export const App: React.FC = () => {
     setValidationReport(null);
     setErrorMsg(null);
     setProgress(0);
+    setActivePreviewTab('source');
+    setScrubTime(null);
   };
 
   // When a new file is dropped/chosen
@@ -79,6 +85,7 @@ export const App: React.FC = () => {
 
     const objectUrl = URL.createObjectURL(selectedFile);
     setMediaUrl(objectUrl);
+    setActivePreviewTab('source');
 
     try {
       if (isGifFile) {
@@ -163,6 +170,9 @@ export const App: React.FC = () => {
       setOutputUrl(url);
       setValidationReport(res.report);
 
+      // Automatically switch preview to display the processed result!
+      setActivePreviewTab('result');
+
       if (res.report.isValid) {
         confetti({
           particleCount: 60,
@@ -245,15 +255,19 @@ export const App: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Left Column: Settings, Timeline, Conversion */}
             <div className="lg:col-span-7 space-y-5">
-              {/* Timeline Trimmer */}
+              {/* Timeline Trimmer with scrub and range sync */}
               <TimelineTrimmer
-                videoUrl={mediaUrl}
                 duration={naturalDuration}
                 startTime={startTime}
                 endTime={endTime}
                 onRangeChange={(start, end) => {
                   setStartTime(start);
                   setEndTime(end);
+                  setActivePreviewTab('source'); // Show source preview when adjusting range
+                }}
+                onScrub={(time) => {
+                  setScrubTime(time);
+                  setActivePreviewTab('source');
                 }}
                 isGif={isGif}
                 speedUpToFit={speedUpToFit}
@@ -282,7 +296,10 @@ export const App: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => setMode('fit')}
+                      onClick={() => {
+                        setMode('fit');
+                        setActivePreviewTab('source');
+                      }}
                       className={`p-2.5 rounded-xl border text-left transition ${
                         mode === 'fit'
                           ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
@@ -297,7 +314,10 @@ export const App: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => setMode('pad')}
+                      onClick={() => {
+                        setMode('pad');
+                        setActivePreviewTab('source');
+                      }}
                       className={`p-2.5 rounded-xl border text-left transition ${
                         mode === 'pad'
                           ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
@@ -312,7 +332,10 @@ export const App: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => setMode('crop')}
+                      onClick={() => {
+                        setMode('crop');
+                        setActivePreviewTab('source');
+                      }}
                       className={`p-2.5 rounded-xl border text-left transition ${
                         mode === 'crop'
                           ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
@@ -383,7 +406,7 @@ export const App: React.FC = () => {
                   type="button"
                   onClick={() => handleConvert()}
                   disabled={isConverting}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-sky-500/25 flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-sky-500/25 flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isConverting ? (
                     <>
@@ -428,15 +451,23 @@ export const App: React.FC = () => {
               )}
             </div>
 
-            {/* Right Column: Telegram Chat Simulation Preview */}
+            {/* Right Column: Unified Telegram Chat Simulation Preview */}
             <div className="lg:col-span-5 space-y-5">
               <PreviewChatMockup
-                previewUrl={outputUrl || mediaUrl}
+                sourceUrl={mediaUrl}
+                outputUrl={outputUrl}
+                activeTab={activePreviewTab}
+                onTabChange={setActivePreviewTab}
+                startTime={startTime}
+                endTime={endTime}
+                scrubTime={scrubTime}
                 dimensions={{
                   width: currentDims.canvasWidth,
                   height: currentDims.canvasHeight,
                 }}
-                isWebmResult={!!outputUrl}
+                outputReport={validationReport}
+                isGif={isGif}
+                onDownload={handleDownload}
               />
 
               {/* Step-by-Step Telegram Guide */}
