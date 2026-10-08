@@ -9,6 +9,8 @@ import {
   AlertCircle,
   Film,
   Zap,
+  Crop,
+  Sliders,
 } from 'lucide-react';
 import { Header } from './components/Header';
 import { Dropzone } from './components/Dropzone';
@@ -16,6 +18,7 @@ import { TimelineTrimmer } from './components/TimelineTrimmer';
 import { PreviewChatMockup } from './components/PreviewChatMockup';
 import { ValidationBadge } from './components/ValidationBadge';
 import { TelegramBotGuide } from './components/TelegramBotGuide';
+import { ReframeModal } from './components/ReframeModal';
 import {
   convertVideoToWebM,
   convertGifToWebM,
@@ -24,6 +27,7 @@ import {
   calculateDimensions,
   type StickerOptions,
   type ValidationReport,
+  type CropArea,
 } from './utils/converter';
 import { parseGIF, decompressFrames } from 'gifuct-js';
 
@@ -44,6 +48,10 @@ export const App: React.FC = () => {
   const [fps, setFps] = useState<number>(30);
   const [quality, setQuality] = useState<'high' | 'medium' | 'low'>('medium');
   const [speedUpToFit, setSpeedUpToFit] = useState<boolean>(true);
+
+  // Reframe & Crop Area State (0 to 1 normalized coordinates)
+  const [crop, setCrop] = useState<CropArea>({ x: 0, y: 0, width: 1, height: 1 });
+  const [isReframeOpen, setIsReframeOpen] = useState<boolean>(false);
 
   // Scrubbing & Active Preview View
   const [activePreviewTab, setActivePreviewTab] = useState<'source' | 'result'>('source');
@@ -75,6 +83,7 @@ export const App: React.FC = () => {
     setProgress(0);
     setActivePreviewTab('source');
     setScrubTime(null);
+    setCrop({ x: 0, y: 0, width: 1, height: 1 });
   };
 
   // When a new file is dropped/chosen
@@ -137,6 +146,7 @@ export const App: React.FC = () => {
       quality: chosenQuality,
       speedUpToFit,
       loopPlayback: true,
+      crop,
     };
 
     try {
@@ -188,7 +198,8 @@ export const App: React.FC = () => {
     document.body.removeChild(a);
   };
 
-  const currentDims = calculateDimensions(origWidth, origHeight, mode);
+  const currentDims = calculateDimensions(origWidth, origHeight, mode, crop);
+  const isCropped = crop.x > 0 || crop.y > 0 || crop.width < 1 || crop.height < 1;
 
   // Auto clean up URLs
   useEffect(() => {
@@ -251,7 +262,7 @@ export const App: React.FC = () => {
                 onRangeChange={(start, end) => {
                   setStartTime(start);
                   setEndTime(end);
-                  setActivePreviewTab('source'); // Show source preview when adjusting range
+                  setActivePreviewTab('source');
                 }}
                 onScrub={(time) => {
                   setScrubTime(time);
@@ -261,6 +272,122 @@ export const App: React.FC = () => {
                 speedUpToFit={speedUpToFit}
                 onToggleSpeedUp={setSpeedUpToFit}
               />
+
+              {/* Area Reframing & Black Bar Removal Control Box */}
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3.5">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                  <div className="flex items-center gap-2">
+                    <Crop className="w-4 h-4 text-sky-400" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-white m-0">Area Reframing & Black Bars</h3>
+                      <p className="text-[11px] text-slate-400 m-0">
+                        Choose your focus subject and remove letterbox black bars
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsReframeOpen(true)}
+                    className="px-3.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition active:scale-95 cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Select Area to Reframe</span>
+                  </button>
+                </div>
+
+                {/* Black Bar Handling Modes */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-300 block">
+                    Black Bar & Padding Choice
+                  </label>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Option 1: Remove Black Bars */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCrop({ x: 0, y: 0.12, width: 1, height: 0.76 });
+                        setActivePreviewTab('source');
+                      }}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        crop.y === 0.12 && crop.height === 0.76
+                          ? 'bg-amber-500/10 border-amber-500/40 text-amber-200 shadow-sm'
+                          : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <div className="font-semibold text-xs text-white flex items-center gap-1">
+                        <span>🎬 Remove Black Bars</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        Crops out top & bottom movie letterbox
+                      </div>
+                    </button>
+
+                    {/* Option 2: Transparent Padding */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('pad');
+                        setCrop({ x: 0, y: 0, width: 1, height: 1 });
+                        setActivePreviewTab('source');
+                      }}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        mode === 'pad' && crop.width === 1 && crop.height === 1
+                          ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
+                          : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <div className="font-semibold text-xs text-white flex items-center gap-1">
+                        <span>🫧 Transparent Padding</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        Clean transparent margins in Telegram
+                      </div>
+                    </button>
+
+                    {/* Option 3: Keep Original Full Frame */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('fit');
+                        setCrop({ x: 0, y: 0, width: 1, height: 1 });
+                        setActivePreviewTab('source');
+                      }}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        mode === 'fit' && crop.width === 1 && crop.height === 1
+                          ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
+                          : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <div className="font-semibold text-xs text-white flex items-center gap-1">
+                        <span>Keep Original Full</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        Keep full original video without cropping
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {isCropped && (
+                  <div className="flex items-center justify-between text-xs bg-sky-500/10 border border-sky-500/20 px-3 py-2 rounded-xl text-sky-300">
+                    <span>
+                      Active Reframe: {Math.round(crop.width * origWidth)} × {Math.round(crop.height * origHeight)} px
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCrop({ x: 0, y: 0, width: 1, height: 1 });
+                        setActivePreviewTab('source');
+                      }}
+                      className="text-[11px] underline hover:text-white"
+                    >
+                      Reset Full Frame
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Conversion Settings Box */}
               <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
@@ -453,6 +580,8 @@ export const App: React.FC = () => {
                   width: currentDims.canvasWidth,
                   height: currentDims.canvasHeight,
                 }}
+                crop={crop}
+                onOpenReframe={() => setIsReframeOpen(true)}
                 outputReport={validationReport}
                 isGif={isGif}
                 onDownload={handleDownload}
@@ -463,6 +592,21 @@ export const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Interactive Reframe Modal */}
+        <ReframeModal
+          isOpen={isReframeOpen}
+          onClose={() => setIsReframeOpen(false)}
+          mediaUrl={mediaUrl}
+          isGif={isGif}
+          crop={crop}
+          onCropChange={(newCrop) => {
+            setCrop(newCrop);
+            setActivePreviewTab('source');
+          }}
+          origWidth={origWidth}
+          origHeight={origHeight}
+        />
 
         {/* Feature Highlights Grid */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-8 border-t border-slate-800/80">
@@ -490,9 +634,9 @@ export const App: React.FC = () => {
             <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center mb-2.5">
               <Sparkles className="w-4 h-4" />
             </div>
-            <h4 className="text-xs font-semibold text-white mb-1">GitHub Pages & Static Hosting</h4>
+            <h4 className="text-xs font-semibold text-white mb-1">Interactive Reframe & Crop</h4>
             <p className="text-[11px] text-slate-400 leading-normal">
-              100% static HTML/JS bundle with zero backend servers or secret keys needed.
+              Drag to focus on your subject and easily crop out black letterbox bars.
             </p>
           </div>
         </section>

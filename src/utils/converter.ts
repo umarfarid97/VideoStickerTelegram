@@ -1,6 +1,13 @@
 import { Muxer, ArrayBufferTarget } from 'webm-muxer';
 import { parseGIF, decompressFrames } from 'gifuct-js';
 
+export interface CropArea {
+  x: number; // 0 to 1 normalized
+  y: number; // 0 to 1 normalized
+  width: number; // 0 to 1 normalized
+  height: number; // 0 to 1 normalized
+}
+
 export interface StickerOptions {
   mode: 'fit' | 'pad' | 'crop';
   startTime: number;
@@ -9,6 +16,8 @@ export interface StickerOptions {
   quality: 'high' | 'medium' | 'low';
   speedUpToFit: boolean;
   loopPlayback: boolean;
+  crop?: CropArea;
+  removeBlackBars?: boolean;
 }
 
 export interface DimensionInfo {
@@ -42,19 +51,25 @@ export function isWebCodecsSupported(): boolean {
 }
 
 /**
- * Calculates compliant sticker dimensions according to Telegram's 512px rule
- * Enforces even numbers for both width and height (required by VP9 codecs)
+ * Calculates compliant sticker dimensions according to Telegram's 512px rule.
+ * Supports custom crop/reframe bounding box.
+ * Enforces even numbers for both width and height (required by VP9 codecs).
  */
 export function calculateDimensions(
   origWidth: number,
   origHeight: number,
-  mode: 'fit' | 'pad' | 'crop'
+  mode: 'fit' | 'pad' | 'crop',
+  crop?: CropArea
 ): DimensionInfo {
+  const c = crop || { x: 0, y: 0, width: 1, height: 1 };
+  const effectiveW = Math.max(2, Math.round(origWidth * Math.max(0.05, Math.min(1, c.width))));
+  const effectiveH = Math.max(2, Math.round(origHeight * Math.max(0.05, Math.min(1, c.height))));
+
   if (mode === 'pad') {
     // 512x512 with transparent padding
-    const scale = Math.min(512 / origWidth, 512 / origHeight);
-    const drawWidth = Math.max(2, Math.round((origWidth * scale) / 2) * 2);
-    const drawHeight = Math.max(2, Math.round((origHeight * scale) / 2) * 2);
+    const scale = Math.min(512 / effectiveW, 512 / effectiveH);
+    const drawWidth = Math.max(2, Math.round((effectiveW * scale) / 2) * 2);
+    const drawHeight = Math.max(2, Math.round((effectiveH * scale) / 2) * 2);
     const drawX = Math.round((512 - drawWidth) / 2);
     const drawY = Math.round((512 - drawHeight) / 2);
     return {
@@ -67,9 +82,9 @@ export function calculateDimensions(
     };
   } else if (mode === 'crop') {
     // 512x512 filled (centered crop)
-    const scale = Math.max(512 / origWidth, 512 / origHeight);
-    const drawWidth = Math.round(origWidth * scale);
-    const drawHeight = Math.round(origHeight * scale);
+    const scale = Math.max(512 / effectiveW, 512 / effectiveH);
+    const drawWidth = Math.round(effectiveW * scale);
+    const drawHeight = Math.round(effectiveH * scale);
     const drawX = Math.round((512 - drawWidth) / 2);
     const drawY = Math.round((512 - drawHeight) / 2);
     return {
@@ -84,13 +99,13 @@ export function calculateDimensions(
     // 'fit' - Telegram spec: one side exactly 512, the other 512 or less
     let canvasWidth = 512;
     let canvasHeight = 512;
-    if (origWidth >= origHeight) {
+    if (effectiveW >= effectiveH) {
       canvasWidth = 512;
-      canvasHeight = Math.max(2, Math.round(((512 * origHeight) / origWidth) / 2) * 2);
+      canvasHeight = Math.max(2, Math.round(((512 * effectiveH) / effectiveW) / 2) * 2);
       if (canvasHeight > 512) canvasHeight = 512;
     } else {
       canvasHeight = 512;
-      canvasWidth = Math.max(2, Math.round(((512 * origWidth) / origHeight) / 2) * 2);
+      canvasWidth = Math.max(2, Math.round(((512 * effectiveW) / effectiveH) / 2) * 2);
       if (canvasWidth > 512) canvasWidth = 512;
     }
     return {
@@ -298,7 +313,7 @@ export async function convertVideoToWebM(
     const end = Math.min(Math.max(start + 0.1, options.endTime), maxEnd);
     const segmentDuration = Math.max(0.1, end - start);
 
-    const dims = calculateDimensions(meta.width, meta.height, options.mode);
+    const dims = calculateDimensions(meta.width, meta.height, options.mode, options.crop);
     const fps = Math.min(30, Math.max(10, options.fps || 30));
 
     // Target bitrate strictly under 256 KB
@@ -401,13 +416,21 @@ export async function convertVideoToWebM(
         ctx.fillRect(0, 0, dims.canvasWidth, dims.canvasHeight);
       }
 
-      // Draw cleanly rendered video frame
+      const c = options.crop || { x: 0, y: 0, width: 1, height: 1 };
+      const vw = video.videoWidth || meta.width;
+      const vh = video.videoHeight || meta.height;
+      const srcX = Math.round(c.x * vw);
+      const srcY = Math.round(c.y * vh);
+      const srcW = Math.max(2, Math.round(c.width * vw));
+      const srcH = Math.max(2, Math.round(c.height * vh));
+
+      // Draw cleanly rendered reframed video frame
       ctx.drawImage(
         video,
-        0,
-        0,
-        video.videoWidth || meta.width,
-        video.videoHeight || meta.height,
+        srcX,
+        srcY,
+        srcW,
+        srcH,
         dims.drawX,
         dims.drawY,
         dims.drawWidth,
@@ -486,7 +509,7 @@ export async function convertGifToWebM(
 
   const gifWidth = parsedGif.lsd.width;
   const gifHeight = parsedGif.lsd.height;
-  const dims = calculateDimensions(gifWidth, gifHeight, options.mode);
+  const dims = calculateDimensions(gifWidth, gifHeight, options.mode, options.crop);
 
   let naturalDuration = rawFrames.reduce((acc, f) => acc + (f.delay || 100), 0) / 1000;
   if (naturalDuration <= 0) naturalDuration = rawFrames.length * 0.1;
@@ -629,12 +652,18 @@ export async function convertGifToWebM(
       ctx.fillRect(0, 0, dims.canvasWidth, dims.canvasHeight);
     }
 
+    const c = options.crop || { x: 0, y: 0, width: 1, height: 1 };
+    const srcX = Math.round(c.x * gifWidth);
+    const srcY = Math.round(c.y * gifHeight);
+    const srcW = Math.max(2, Math.round(c.width * gifWidth));
+    const srcH = Math.max(2, Math.round(c.height * gifHeight));
+
     ctx.drawImage(
       chosen,
-      0,
-      0,
-      gifWidth,
-      gifHeight,
+      srcX,
+      srcY,
+      srcW,
+      srcH,
       dims.drawX,
       dims.drawY,
       dims.drawWidth,

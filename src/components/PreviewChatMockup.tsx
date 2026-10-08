@@ -8,8 +8,9 @@ import {
   Pause,
   Download,
   Film,
+  Crop,
 } from 'lucide-react';
-import type { ValidationReport } from '../utils/converter';
+import type { ValidationReport, CropArea } from '../utils/converter';
 
 interface PreviewChatMockupProps {
   sourceUrl: string | null;
@@ -20,6 +21,8 @@ interface PreviewChatMockupProps {
   endTime: number;
   scrubTime: number | null;
   dimensions: { width: number; height: number };
+  crop: CropArea;
+  onOpenReframe: () => void;
   outputReport: ValidationReport | null;
   isGif: boolean;
   onDownload?: () => void;
@@ -34,6 +37,8 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
   endTime,
   scrubTime,
   dimensions,
+  crop,
+  onOpenReframe,
   outputReport,
   isGif,
   onDownload,
@@ -116,10 +121,23 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
   const currentMediaUrl = activeTab === 'result' && outputUrl ? outputUrl : sourceUrl;
   const isViewingResult = activeTab === 'result' && !!outputUrl;
   const trimDuration = Math.max(0.1, endTime - startTime);
+  const isCropped = crop.x > 0 || crop.y > 0 || crop.width < 1 || crop.height < 1;
+
+  // Compute preview aspect ratio box size
+  const aspect = dimensions.width / Math.max(1, dimensions.height);
+  let boxW = 280;
+  let boxH = 280;
+  if (aspect >= 1) {
+    boxW = 280;
+    boxH = Math.max(80, Math.round(280 / aspect));
+  } else {
+    boxH = 280;
+    boxW = Math.max(80, Math.round(280 * aspect));
+  }
 
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col h-full space-y-3">
-      {/* Header with Mode Switcher & Background Selector */}
+      {/* Header with Mode Switcher & Reframe Action */}
       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
         <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
           <button
@@ -162,41 +180,52 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
           </button>
         </div>
 
-        {/* Theme Toggles */}
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px]">
+        {/* Reframe button & Theme Toggles */}
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setTheme('tg-dark')}
-            className={`px-2 py-1 rounded-lg transition ${
-              theme === 'tg-dark'
-                ? 'bg-slate-800 text-sky-400 font-medium'
-                : 'text-slate-400 hover:text-white'
-            }`}
+            onClick={onOpenReframe}
+            className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-medium flex items-center gap-1.5 transition shadow-sm"
           >
-            TG Dark
+            <Crop className="w-3.5 h-3.5 text-sky-400" />
+            <span>Reframe</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setTheme('tg-light')}
-            className={`px-2 py-1 rounded-lg transition ${
-              theme === 'tg-light'
-                ? 'bg-slate-800 text-sky-400 font-medium'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            TG Light
-          </button>
-          <button
-            type="button"
-            onClick={() => setTheme('checkerboard')}
-            className={`px-2 py-1 rounded-lg transition ${
-              theme === 'checkerboard'
-                ? 'bg-slate-800 text-sky-400 font-medium'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Alpha Grid
-          </button>
+
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px]">
+            <button
+              type="button"
+              onClick={() => setTheme('tg-dark')}
+              className={`px-2 py-1 rounded-lg transition ${
+                theme === 'tg-dark'
+                  ? 'bg-slate-800 text-sky-400 font-medium'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Dark
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('tg-light')}
+              className={`px-2 py-1 rounded-lg transition ${
+                theme === 'tg-light'
+                  ? 'bg-slate-800 text-sky-400 font-medium'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Light
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('checkerboard')}
+              className={`px-2 py-1 rounded-lg transition ${
+                theme === 'checkerboard'
+                  ? 'bg-slate-800 text-sky-400 font-medium'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Alpha
+            </button>
+          </div>
         </div>
       </div>
 
@@ -211,7 +240,8 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
           ) : (
             <span className="inline-flex items-center gap-1.5 text-sky-400 font-medium bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">
               <Eye className="w-3.5 h-3.5" />
-              Showing Selection: {startTime.toFixed(2)}s → {endTime.toFixed(2)}s (Looping)
+              Showing Selection: {startTime.toFixed(2)}s → {endTime.toFixed(2)}s
+              {isCropped && <span className="text-amber-400 font-bold">• Reframed Area</span>}
             </span>
           )}
         </div>
@@ -241,23 +271,55 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
         {/* Center Sticker Container */}
         <div className="relative z-10 flex flex-col items-center">
           {currentMediaUrl ? (
-            <div className="relative group max-w-[280px] sm:max-w-[320px] max-h-[320px] flex items-center justify-center">
-              <video
-                ref={videoRef}
-                key={currentMediaUrl}
-                src={currentMediaUrl}
-                autoPlay
-                loop={activeTab === 'result' || isGif}
-                muted
-                playsInline
-                className="max-h-[280px] w-auto h-auto object-contain rounded-xl drop-shadow-2xl cursor-pointer"
-                onClick={togglePlay}
-              />
+            <div
+              className="relative group rounded-xl drop-shadow-2xl overflow-hidden flex items-center justify-center cursor-pointer bg-black/40"
+              style={{
+                width: `${boxW}px`,
+                height: `${boxH}px`,
+              }}
+              onClick={togglePlay}
+            >
+              {isViewingResult ? (
+                // Output WebM directly
+                <video
+                  ref={videoRef}
+                  key="output-result-video"
+                  src={outputUrl!}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-contain pointer-events-none"
+                />
+              ) : (
+                // Source video with CSS-reframe transform to match crop box!
+                <div className="w-full h-full relative overflow-hidden flex items-center justify-center">
+                  <video
+                    ref={videoRef}
+                    key="source-preview-video"
+                    src={sourceUrl!}
+                    autoPlay
+                    loop={isGif}
+                    muted
+                    playsInline
+                    className="absolute max-w-none pointer-events-none object-contain"
+                    style={{
+                      width: `${(1 / crop.width) * 100}%`,
+                      height: `${(1 / crop.height) * 100}%`,
+                      left: `${(-crop.x / crop.width) * 100}%`,
+                      top: `${(-crop.y / crop.height) * 100}%`,
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Play / Pause Overlay Button on hover */}
               <button
                 type="button"
-                onClick={togglePlay}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePlay();
+                }}
                 className="absolute inset-0 m-auto w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:scale-105 active:scale-95"
               >
                 {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
@@ -300,9 +362,16 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
                   )}
                 </>
               ) : (
-                <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                  Loop: {trimDuration.toFixed(2)}s
-                </span>
+                <>
+                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                    Loop: {trimDuration.toFixed(2)}s
+                  </span>
+                  {isCropped && (
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Reframed
+                    </span>
+                  )}
+                </>
               )}
             </div>
           )}
