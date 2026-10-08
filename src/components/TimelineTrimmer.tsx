@@ -22,27 +22,37 @@ export const TimelineTrimmer: React.FC<TimelineTrimmerProps> = ({
   speedUpToFit,
   onToggleSpeedUp,
 }) => {
-  const selectedDuration = Math.max(0.1, endTime - startTime);
+  // Guarantee finite duration strictly bounded to video length
+  const safeDuration =
+    isFinite(duration) && duration > 0 && duration !== Infinity
+      ? Math.round(duration * 100) / 100
+      : 3.0;
+
+  const clampedStart = Math.max(0, Math.min(startTime, safeDuration));
+  const clampedEnd = Math.max(0.1, Math.min(endTime, safeDuration));
+  const selectedDuration = Math.max(0.1, clampedEnd - clampedStart);
   const isCappedAt3 = selectedDuration >= 3.0;
 
   const handleStartChange = (val: number) => {
-    const newStart = Math.max(0, Math.min(val, duration - 0.1));
-    let newEnd = endTime;
+    const newStart = Math.max(0, Math.min(val, safeDuration - 0.1));
+    let newEnd = clampedEnd;
 
     // Enforce max 3.0s duration rule for Telegram
     if (newEnd - newStart > 3.0) {
-      newEnd = Math.min(duration, newStart + 3.0);
+      newEnd = Math.min(safeDuration, newStart + 3.0);
     } else if (newEnd <= newStart) {
-      newEnd = Math.min(duration, newStart + 0.5);
+      newEnd = Math.min(safeDuration, newStart + 0.5);
     }
+
+    if (newEnd > safeDuration) newEnd = safeDuration;
 
     onRangeChange(newStart, newEnd);
     onScrub(newStart);
   };
 
   const handleEndChange = (val: number) => {
-    const newEnd = Math.min(duration, Math.max(val, 0.2));
-    let newStart = startTime;
+    const newEnd = Math.min(safeDuration, Math.max(val, 0.2));
+    let newStart = clampedStart;
 
     // Enforce max 3.0s duration rule for Telegram
     if (newEnd - newStart > 3.0) {
@@ -51,35 +61,39 @@ export const TimelineTrimmer: React.FC<TimelineTrimmerProps> = ({
       newStart = Math.max(0, newEnd - 0.5);
     }
 
+    if (newStart < 0) newStart = 0;
+
     onRangeChange(newStart, newEnd);
     onScrub(newEnd);
   };
 
   // Quick preset shortcuts
   const selectFirst3s = () => {
-    const newEnd = Math.min(duration, 3.0);
+    const newEnd = Math.min(safeDuration, 3.0);
     onRangeChange(0, newEnd);
     onScrub(0);
   };
 
   const selectMiddle3s = () => {
-    if (duration <= 3.0) {
-      onRangeChange(0, duration);
+    if (safeDuration <= 3.0) {
+      onRangeChange(0, safeDuration);
       onScrub(0);
       return;
     }
-    const mid = duration / 2;
+    const mid = safeDuration / 2;
     const newStart = Math.max(0, mid - 1.5);
-    const newEnd = Math.min(duration, newStart + 3.0);
+    const newEnd = Math.min(safeDuration, newStart + 3.0);
     onRangeChange(newStart, newEnd);
     onScrub(newStart);
   };
 
   const selectLast3s = () => {
-    const newStart = Math.max(0, duration - 3.0);
-    onRangeChange(newStart, duration);
+    const newStart = Math.max(0, safeDuration - 3.0);
+    onRangeChange(newStart, safeDuration);
     onScrub(newStart);
   };
+
+  const stepSize = Math.min(0.05, Math.max(0.01, safeDuration / 200));
 
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
@@ -116,8 +130,8 @@ export const TimelineTrimmer: React.FC<TimelineTrimmerProps> = ({
         <div
           className="absolute top-0 bottom-0 bg-sky-500/20 border-x-2 border-sky-400 transition-all pointer-events-none"
           style={{
-            left: `${(startTime / Math.max(0.1, duration)) * 100}%`,
-            width: `${(selectedDuration / Math.max(0.1, duration)) * 100}%`,
+            left: `${(clampedStart / safeDuration) * 100}%`,
+            width: `${(selectedDuration / safeDuration) * 100}%`,
           }}
         >
           <div className="absolute top-1 left-2 text-[10px] font-mono text-sky-300 font-bold">
@@ -128,25 +142,25 @@ export const TimelineTrimmer: React.FC<TimelineTrimmerProps> = ({
         <div className="relative z-10 w-full flex items-center justify-between text-[11px] font-mono text-slate-400 select-none">
           <span>0.0s</span>
           <span className="text-sky-300 font-semibold bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700/80">
-            {startTime.toFixed(2)}s → {endTime.toFixed(2)}s
+            {clampedStart.toFixed(2)}s → {clampedEnd.toFixed(2)}s
           </span>
-          <span>{duration.toFixed(1)}s</span>
+          <span>{safeDuration.toFixed(1)}s</span>
         </div>
       </div>
 
-      {/* Dual Sliders */}
+      {/* Dual Sliders clamped to safeDuration */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
         <div>
           <div className="flex justify-between text-slate-400 mb-1.5">
             <span>Start Point:</span>
-            <span className="font-mono text-white font-semibold">{startTime.toFixed(2)}s</span>
+            <span className="font-mono text-white font-semibold">{clampedStart.toFixed(2)}s</span>
           </div>
           <input
             type="range"
-            min="0"
-            max={duration}
-            step="0.05"
-            value={startTime}
+            min={0}
+            max={safeDuration}
+            step={stepSize}
+            value={clampedStart}
             onChange={(e) => handleStartChange(parseFloat(e.target.value))}
             className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400"
           />
@@ -155,14 +169,14 @@ export const TimelineTrimmer: React.FC<TimelineTrimmerProps> = ({
         <div>
           <div className="flex justify-between text-slate-400 mb-1.5">
             <span>End Point:</span>
-            <span className="font-mono text-white font-semibold">{endTime.toFixed(2)}s</span>
+            <span className="font-mono text-white font-semibold">{clampedEnd.toFixed(2)}s</span>
           </div>
           <input
             type="range"
-            min="0"
-            max={duration}
-            step="0.05"
-            value={endTime}
+            min={0}
+            max={safeDuration}
+            step={stepSize}
+            value={clampedEnd}
             onChange={(e) => handleEndChange(parseFloat(e.target.value))}
             className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400"
           />
@@ -180,7 +194,7 @@ export const TimelineTrimmer: React.FC<TimelineTrimmerProps> = ({
           >
             First 3.0s
           </button>
-          {duration > 3.0 && (
+          {safeDuration > 3.0 && (
             <>
               <button
                 type="button"
@@ -201,7 +215,7 @@ export const TimelineTrimmer: React.FC<TimelineTrimmerProps> = ({
         </div>
 
         {/* GIF Speed Up toggle */}
-        {isGif && duration > 3.0 && (
+        {isGif && safeDuration > 3.0 && (
           <label className="flex items-center gap-1.5 cursor-pointer text-xs text-sky-300 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20 hover:bg-sky-500/20 transition">
             <input
               type="checkbox"

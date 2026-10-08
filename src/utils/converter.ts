@@ -183,12 +183,84 @@ async function getBestEncoderConfig(
   );
 }
 
+/**
+ * Accurately extracts video metadata, fixing Chromium's known Infinity duration bug on WebM files
+ */
+export async function getVideoMetadata(
+  videoUrl: string
+): Promise<{ width: number; height: number; duration: number }> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.src = videoUrl;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+
+    video.onloadedmetadata = () => {
+      const width = video.videoWidth || 512;
+      const height = video.videoHeight || 512;
+
+      // Check if duration is already finite and valid
+      if (isFinite(video.duration) && video.duration > 0 && video.duration !== Infinity) {
+        resolve({
+          width,
+          height,
+          duration: Math.max(0.5, Math.round(video.duration * 100) / 100),
+        });
+        return;
+      }
+
+      // Chromium Infinity duration fix: Seek to high timestamp to force index parsing
+      let resolved = false;
+      const handleDurationFound = () => {
+        if (resolved) return;
+        resolved = true;
+        video.removeEventListener('timeupdate', handleDurationFound);
+        let finalDur = 3.0;
+        if (isFinite(video.duration) && video.duration > 0 && video.duration !== Infinity) {
+          finalDur = video.duration;
+        } else if (isFinite(video.currentTime) && video.currentTime > 0) {
+          finalDur = video.currentTime;
+        }
+        video.currentTime = 0;
+        resolve({
+          width,
+          height,
+          duration: Math.max(0.5, Math.min(86400, Math.round(finalDur * 100) / 100)),
+        });
+      };
+
+      video.addEventListener('timeupdate', handleDurationFound, { once: true });
+      video.currentTime = 1e101;
+
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          video.removeEventListener('timeupdate', handleDurationFound);
+          const fallback =
+            isFinite(video.duration) && video.duration > 0 && video.duration !== Infinity
+              ? video.duration
+              : 3.0;
+          video.currentTime = 0;
+          resolve({
+            width,
+            height,
+            duration: Math.max(0.5, Math.min(86400, Math.round(fallback * 100) / 100)),
+          });
+        }
+      }, 600);
+    };
+
+    video.onerror = () => reject(new Error('Failed to load video metadata.'));
+  });
+}
+
 export interface ProgressCallback {
   (progress: number, stage: string): void;
 }
 
 /**
- * Converts a Video File to Telegram Sticker WebM
+ * Converts a Video File to Telegram Sticker WebM with smooth, non-stuttering frame capture
  */
 export async function convertVideoToWebM(
   videoFile: File,
@@ -207,164 +279,188 @@ export async function convertVideoToWebM(
   video.playsInline = true;
   video.preload = 'auto';
 
-  await new Promise<void>((resolve, reject) => {
-    video.onloadedmetadata = () => resolve();
-    video.onerror = () => reject(new Error('Failed to load video file.'));
-  });
+  // Attach video to DOM off-screen: Critical in Chromium to force GPU compositor to update textures on seek
+  video.style.position = 'fixed';
+  video.style.top = '0';
+  video.style.left = '-9999px';
+  video.style.width = '256px';
+  video.style.height = '256px';
+  video.style.opacity = '0.01';
+  video.style.pointerEvents = 'none';
+  document.body.appendChild(video);
 
-  const duration = video.duration || 3.0;
-  const start = Math.max(0, Math.min(options.startTime, duration));
-  const maxEnd = Math.min(duration, start + 3.0);
-  const end = Math.min(Math.max(start + 0.1, options.endTime), maxEnd);
-  const segmentDuration = end - start;
+  try {
+    const meta = await getVideoMetadata(videoUrl);
+    const duration = meta.duration;
 
-  const dims = calculateDimensions(video.videoWidth, video.videoHeight, options.mode);
-  const fps = Math.min(30, Math.max(10, options.fps || 30));
+    const start = Math.max(0, Math.min(options.startTime, duration));
+    const maxEnd = Math.min(duration, start + 3.0);
+    const end = Math.min(Math.max(start + 0.1, options.endTime), maxEnd);
+    const segmentDuration = Math.max(0.1, end - start);
 
-  // Determine bitrate based on quality and duration to stay strictly under 256 KB
-  let targetBytes = 210 * 1024;
-  if (options.quality === 'high') targetBytes = 230 * 1024;
-  if (options.quality === 'low') targetBytes = 150 * 1024;
+    const dims = calculateDimensions(meta.width, meta.height, options.mode);
+    const fps = Math.min(30, Math.max(10, options.fps || 30));
 
-  const targetBitrate = Math.max(80_000, Math.floor((targetBytes * 8) / segmentDuration));
+    // Target bitrate strictly under 256 KB
+    let targetBytes = 210 * 1024;
+    if (options.quality === 'high') targetBytes = 230 * 1024;
+    if (options.quality === 'low') targetBytes = 150 * 1024;
 
-  // In pad mode, user might want alpha transparency
-  const wantsAlpha = options.mode === 'pad';
-  const { config: encoderConfig, actualAlpha } = await getBestEncoderConfig(
-    dims.canvasWidth,
-    dims.canvasHeight,
-    targetBitrate,
-    fps,
-    wantsAlpha
-  );
+    const targetBitrate = Math.max(80_000, Math.floor((targetBytes * 8) / segmentDuration));
 
-  // Setup offscreen canvas
-  const canvas = document.createElement('canvas');
-  canvas.width = dims.canvasWidth;
-  canvas.height = dims.canvasHeight;
-  const ctx = canvas.getContext('2d', { alpha: actualAlpha, willReadFrequently: true });
-  if (!ctx) throw new Error('Could not create 2D canvas context.');
-
-  const target = new ArrayBufferTarget();
-
-  const muxer = new Muxer({
-    target,
-    video: {
-      codec: 'V_VP9',
-      width: dims.canvasWidth,
-      height: dims.canvasHeight,
-      frameRate: fps,
-      alpha: actualAlpha,
-    },
-    firstTimestampBehavior: 'offset',
-  });
-
-  let encoderError: any = null;
-  const encoder = new VideoEncoder({
-    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error: (err) => {
-      encoderError = err;
-      console.error('VideoEncoder error callback:', err);
-    },
-  });
-
-  encoder.configure(encoderConfig);
-
-  const totalFrames = Math.max(1, Math.round(segmentDuration * fps));
-  const timeStep = segmentDuration / totalFrames;
-
-  onProgress?.(15, 'Encoding frames...');
-
-  for (let i = 0; i < totalFrames; i++) {
-    if (encoderError) {
-      throw new Error(`Video encoding failed: ${encoderError.message || encoderError}`);
-    }
-
-    if (encoder.state === 'closed') {
-      throw new Error(`VideoEncoder closed prematurely on frame ${i + 1}/${totalFrames}.`);
-    }
-
-    // Backpressure: pause if encoder queue exceeds 4 pending frames
-    while (encoder.encodeQueueSize > 4) {
-      await new Promise((r) => setTimeout(r, 10));
-    }
-
-    const currentTime = start + i * timeStep;
-    video.currentTime = currentTime;
-
-    await new Promise<void>((resolve) => {
-      const handleSeek = () => {
-        video.removeEventListener('seeked', handleSeek);
-        resolve();
-      };
-      video.addEventListener('seeked', handleSeek, { once: true });
-    });
-
-    // Clear canvas
-    ctx.clearRect(0, 0, dims.canvasWidth, dims.canvasHeight);
-
-    // If not transparent alpha, fill background with black or neutral
-    if (!actualAlpha && options.mode === 'pad') {
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, dims.canvasWidth, dims.canvasHeight);
-    }
-
-    // Draw scaled video frame
-    ctx.drawImage(
-      video,
-      0,
-      0,
-      video.videoWidth,
-      video.videoHeight,
-      dims.drawX,
-      dims.drawY,
-      dims.drawWidth,
-      dims.drawHeight
+    const wantsAlpha = options.mode === 'pad';
+    const { config: encoderConfig, actualAlpha } = await getBestEncoderConfig(
+      dims.canvasWidth,
+      dims.canvasHeight,
+      targetBitrate,
+      fps,
+      wantsAlpha
     );
 
-    const timestampMicroseconds = Math.round(i * (1_000_000 / fps));
-    const durationMicroseconds = Math.round(1_000_000 / fps);
+    const canvas = document.createElement('canvas');
+    canvas.width = dims.canvasWidth;
+    canvas.height = dims.canvasHeight;
+    const ctx = canvas.getContext('2d', { alpha: actualAlpha, willReadFrequently: true });
+    if (!ctx) throw new Error('Could not create 2D canvas context.');
 
-    const videoFrame = new VideoFrame(canvas, {
-      timestamp: timestampMicroseconds,
-      duration: durationMicroseconds,
-      alpha: actualAlpha ? 'keep' : 'discard',
+    const target = new ArrayBufferTarget();
+    const muxer = new Muxer({
+      target,
+      video: {
+        codec: 'V_VP9',
+        width: dims.canvasWidth,
+        height: dims.canvasHeight,
+        frameRate: fps,
+        alpha: actualAlpha,
+      },
+      firstTimestampBehavior: 'offset',
     });
 
-    try {
-      const isKeyframe = i % 30 === 0;
-      encoder.encode(videoFrame, { keyFrame: isKeyframe });
-    } finally {
-      videoFrame.close();
+    let encoderError: any = null;
+    const encoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error: (err) => {
+        encoderError = err;
+        console.error('VideoEncoder error callback:', err);
+      },
+    });
+
+    encoder.configure(encoderConfig);
+
+    const totalFrames = Math.max(1, Math.round(segmentDuration * fps));
+    const timeStep = segmentDuration / totalFrames;
+
+    onProgress?.(15, 'Extracting and encoding smooth frames...');
+
+    for (let i = 0; i < totalFrames; i++) {
+      if (encoderError) {
+        throw new Error(`Video encoding failed: ${encoderError.message || encoderError}`);
+      }
+
+      if (encoder.state === 'closed') {
+        throw new Error(`VideoEncoder closed prematurely on frame ${i + 1}/${totalFrames}.`);
+      }
+
+      while (encoder.encodeQueueSize > 4) {
+        await new Promise((r) => setTimeout(r, 10));
+      }
+
+      const currentTime = start + i * timeStep;
+
+      // Seek with synchronized compositor paint
+      await new Promise<void>((resolve) => {
+        let isDone = false;
+        const finish = () => {
+          if (!isDone) {
+            isDone = true;
+            resolve();
+          }
+        };
+
+        if ('requestVideoFrameCallback' in video) {
+          (video as any).requestVideoFrameCallback(() => {
+            finish();
+          });
+        }
+
+        const onSeeked = () => {
+          video.removeEventListener('seeked', onSeeked);
+          // 30ms render cushion guarantees GPU texture upload before canvas drawImage
+          setTimeout(finish, 30);
+        };
+
+        video.addEventListener('seeked', onSeeked, { once: true });
+        video.currentTime = currentTime;
+      });
+
+      // Clear canvas
+      ctx.clearRect(0, 0, dims.canvasWidth, dims.canvasHeight);
+
+      if (!actualAlpha && options.mode === 'pad') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, dims.canvasWidth, dims.canvasHeight);
+      }
+
+      // Draw cleanly rendered video frame
+      ctx.drawImage(
+        video,
+        0,
+        0,
+        video.videoWidth || meta.width,
+        video.videoHeight || meta.height,
+        dims.drawX,
+        dims.drawY,
+        dims.drawWidth,
+        dims.drawHeight
+      );
+
+      const timestampMicroseconds = Math.round(i * (1_000_000 / fps));
+      const durationMicroseconds = Math.round(1_000_000 / fps);
+
+      const videoFrame = new VideoFrame(canvas, {
+        timestamp: timestampMicroseconds,
+        duration: durationMicroseconds,
+        alpha: actualAlpha ? 'keep' : 'discard',
+      });
+
+      try {
+        // Keyframe every 15 frames for fluid looping
+        const isKeyframe = i === 0 || i % 15 === 0;
+        encoder.encode(videoFrame, { keyFrame: isKeyframe });
+      } finally {
+        videoFrame.close();
+      }
+
+      const progressPercent = Math.round(15 + (i / totalFrames) * 75);
+      onProgress?.(progressPercent, `Encoding frame ${i + 1}/${totalFrames}`);
     }
 
-    const progressPercent = Math.round(15 + (i / totalFrames) * 75);
-    onProgress?.(progressPercent, `Encoding frame ${i + 1}/${totalFrames}`);
+    onProgress?.(92, 'Finalizing WebM container...');
+
+    if (encoder.state !== 'closed') {
+      await encoder.flush();
+      encoder.close();
+    }
+    muxer.finalize();
+
+    const buffer = target.buffer;
+    const blob = new Blob([buffer], { type: 'video/webm' });
+
+    onProgress?.(100, 'Complete!');
+
+    const report = generateValidationReport(
+      blob,
+      segmentDuration,
+      dims.canvasWidth,
+      dims.canvasHeight,
+      fps,
+      encoderConfig.codec
+    );
+    return { blob, report };
+  } finally {
+    video.remove();
+    URL.revokeObjectURL(videoUrl);
   }
-
-  onProgress?.(92, 'Finalizing WebM container...');
-
-  if (encoder.state !== 'closed') {
-    await encoder.flush();
-    encoder.close();
-  }
-  muxer.finalize();
-  URL.revokeObjectURL(videoUrl);
-
-  const buffer = target.buffer;
-  const blob = new Blob([buffer], { type: 'video/webm' });
-
-  onProgress?.(100, 'Complete!');
-
-  const report = generateValidationReport(
-    blob,
-    segmentDuration,
-    dims.canvasWidth,
-    dims.canvasHeight,
-    fps,
-    encoderConfig.codec
-  );
-  return { blob, report };
 }
 
 /**

@@ -19,6 +19,7 @@ import { TelegramBotGuide } from './components/TelegramBotGuide';
 import {
   convertVideoToWebM,
   convertGifToWebM,
+  getVideoMetadata,
   isWebCodecsSupported,
   calculateDimensions,
   type StickerOptions,
@@ -104,25 +105,12 @@ export const App: React.FC = () => {
         setEndTime(Math.min(dur, 3.0));
         setSpeedUpToFit(dur > 3.0);
       } else {
-        const video = document.createElement('video');
-        video.src = objectUrl;
-        video.muted = true;
-        video.playsInline = true;
-
-        await new Promise<void>((resolve, reject) => {
-          video.onloadedmetadata = () => resolve();
-          video.onerror = () => reject(new Error('Failed to load video metadata'));
-        });
-
-        const vWidth = video.videoWidth || 512;
-        const vHeight = video.videoHeight || 512;
-        const dur = video.duration || 3.0;
-
-        setOrigWidth(vWidth);
-        setOrigHeight(vHeight);
-        setNaturalDuration(dur);
+        const meta = await getVideoMetadata(objectUrl);
+        setOrigWidth(meta.width);
+        setOrigHeight(meta.height);
+        setNaturalDuration(meta.duration);
         setStartTime(0);
-        setEndTime(Math.min(dur, 3.0));
+        setEndTime(Math.min(meta.duration, 3.0));
       }
     } catch (err: unknown) {
       console.error(err);
