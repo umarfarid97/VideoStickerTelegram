@@ -210,16 +210,16 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
       <Header />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 space-y-8">
         {/* Browser compatibility banner if WebCodecs unavailable */}
         {!supported && (
-          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-xs">
-              <strong className="text-amber-100">WebCodecs API not detected:</strong> For high-speed in-browser VP9 encoding, please open this site in <strong>Google Chrome</strong>, <strong>Microsoft Edge</strong>, or a recent Chromium-based browser.
+              <strong className="text-amber-950">WebCodecs API not detected:</strong> For high-speed in-browser VP9 encoding, please open this site in <strong>Google Chrome</strong>, <strong>Microsoft Edge</strong>, or a recent Chromium-based browser.
             </div>
           </div>
         )}
@@ -227,15 +227,15 @@ export const App: React.FC = () => {
         {/* Hero description */}
         {!file && (
           <div className="text-center max-w-2xl mx-auto pt-4 pb-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-medium mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-medium mb-3">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Compliant with Telegram @Stickers bot</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-2">
               Transform Videos & GIFs into Telegram Video Stickers
             </h2>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Auto-sizes to <strong className="text-slate-200">512px</strong>, trims to <strong className="text-slate-200">≤ 3.0s</strong>, encodes with <strong className="text-slate-200">VP9 WebM</strong>, and ensures file size stays under <strong className="text-slate-200">256 KB</strong>. Zero software installation required.
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Auto-sizes to <strong className="text-slate-800">512px</strong>, trims to <strong className="text-slate-800">≤ 3.0s</strong>, encodes with <strong className="text-slate-800">VP9 WebM</strong>, and ensures file size stays under <strong className="text-slate-800">256 KB</strong>. Zero software installation required.
             </p>
           </div>
         )}
@@ -301,13 +301,13 @@ export const App: React.FC = () => {
               />
 
               {/* Area Reframing & Black Bar Removal Control Box */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3.5">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <Crop className="w-4 h-4 text-sky-400" />
+                    <Crop className="w-4 h-4 text-sky-600" />
                     <div>
-                      <h3 className="text-sm font-semibold text-white m-0">Area Reframing & Black Bars</h3>
-                      <p className="text-[11px] text-slate-400 m-0">
+                      <h3 className="text-sm font-semibold text-slate-900 m-0">Area Reframing & Black Bars</h3>
+                      <p className="text-[11px] text-slate-500 m-0">
                         Choose your focus subject and remove letterbox black bars
                       </p>
                     </div>
@@ -316,7 +316,7 @@ export const App: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsReframeOpen(true)}
-                    className="px-3.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition active:scale-95 cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition active:scale-95 cursor-pointer"
                   >
                     <Sliders className="w-3.5 h-3.5" />
                     <span>Select Area to Reframe</span>
@@ -325,7 +325,7 @@ export const App: React.FC = () => {
 
                 {/* Black Bar Handling Modes */}
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-300 block">
+                  <label className="text-xs font-medium text-slate-700 block">
                     Black Bar & Padding Choice
                   </label>
 
@@ -337,16 +337,16 @@ export const App: React.FC = () => {
                         setCrop({ x: 0, y: 0.12, width: 1, height: 0.76 });
                         setActivePreviewTab('source');
                       }}
-                      className={`p-3 rounded-xl border text-left transition ${
+                      className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                         crop.y === 0.12 && crop.height === 0.76
-                          ? 'bg-amber-500/10 border-amber-500/40 text-amber-200 shadow-sm'
-                          : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:text-slate-200'
+                          ? 'bg-amber-50 border-amber-400 text-amber-900 shadow-xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                       }`}
                     >
-                      <div className="font-semibold text-xs text-white flex items-center gap-1">
+                      <div className="font-semibold text-xs text-slate-900 flex items-center gap-1">
                         <span>🎬 Remove Black Bars</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-1">
+                      <div className="text-[10px] text-slate-500 mt-1">
                         Crops out top & bottom movie letterbox
                       </div>
                     </button>
@@ -359,16 +359,16 @@ export const App: React.FC = () => {
                         setCrop({ x: 0, y: 0, width: 1, height: 1 });
                         setActivePreviewTab('source');
                       }}
-                      className={`p-3 rounded-xl border text-left transition ${
+                      className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                         mode === 'pad' && crop.width === 1 && crop.height === 1
-                          ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
-                          : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:text-slate-200'
+                          ? 'bg-sky-50 border-sky-400 text-sky-900 shadow-xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                       }`}
                     >
-                      <div className="font-semibold text-xs text-white flex items-center gap-1">
+                      <div className="font-semibold text-xs text-slate-900 flex items-center gap-1">
                         <span>🫧 Transparent Padding</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-1">
+                      <div className="text-[10px] text-slate-500 mt-1">
                         Clean transparent margins in Telegram
                       </div>
                     </button>
@@ -381,16 +381,16 @@ export const App: React.FC = () => {
                         setCrop({ x: 0, y: 0, width: 1, height: 1 });
                         setActivePreviewTab('source');
                       }}
-                      className={`p-3 rounded-xl border text-left transition ${
+                      className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                         mode === 'fit' && crop.width === 1 && crop.height === 1
-                          ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
-                          : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:text-slate-200'
+                          ? 'bg-sky-50 border-sky-400 text-sky-900 shadow-xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                       }`}
                     >
-                      <div className="font-semibold text-xs text-white flex items-center gap-1">
+                      <div className="font-semibold text-xs text-slate-900 flex items-center gap-1">
                         <span>Keep Original Full</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-1">
+                      <div className="text-[10px] text-slate-500 mt-1">
                         Keep full original video without cropping
                       </div>
                     </button>
@@ -398,7 +398,7 @@ export const App: React.FC = () => {
                 </div>
 
                 {isCropped && (
-                  <div className="flex items-center justify-between text-xs bg-sky-500/10 border border-sky-500/20 px-3 py-2 rounded-xl text-sky-300">
+                  <div className="flex items-center justify-between text-xs bg-sky-50 border border-sky-200 px-3 py-2 rounded-xl text-sky-800">
                     <span>
                       Active Reframe: {Math.round(crop.width * origWidth)} × {Math.round(crop.height * origHeight)} px
                     </span>
@@ -408,7 +408,7 @@ export const App: React.FC = () => {
                         setCrop({ x: 0, y: 0, width: 1, height: 1 });
                         setActivePreviewTab('source');
                       }}
-                      className="text-[11px] underline hover:text-white"
+                      className="text-[11px] underline text-sky-700 hover:text-sky-900 font-medium cursor-pointer"
                     >
                       Reset Full Frame
                     </button>
@@ -417,20 +417,20 @@ export const App: React.FC = () => {
               </div>
 
               {/* Conversion Settings Box */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-800/80">
-                  <Settings2 className="w-4 h-4 text-sky-400" />
-                  <h3 className="text-sm font-semibold text-white m-0">Sticker Dimensions & Codec Settings</h3>
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <Settings2 className="w-4 h-4 text-sky-600" />
+                  <h3 className="text-sm font-semibold text-slate-900 m-0">Sticker Dimensions & Codec Settings</h3>
                 </div>
 
                 {/* Dimension Modes */}
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-300 flex items-center justify-between">
+                  <label className="text-xs font-medium text-slate-700 flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <Maximize2 className="w-3.5 h-3.5 text-slate-400" />
+                      <Maximize2 className="w-3.5 h-3.5 text-slate-500" />
                       Dimension Fitting Mode (Telegram 512px Rule)
                     </span>
-                    <span className="font-mono text-sky-400 text-[11px]">
+                    <span className="font-mono text-sky-700 font-semibold text-[11px]">
                       {currentDims.canvasWidth} × {currentDims.canvasHeight} px
                     </span>
                   </label>
@@ -442,14 +442,14 @@ export const App: React.FC = () => {
                         setMode('fit');
                         setActivePreviewTab('source');
                       }}
-                      className={`p-2.5 rounded-xl border text-left transition ${
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
                         mode === 'fit'
-                          ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
-                          : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:text-slate-200'
+                          ? 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                       }`}
                     >
-                      <div className="font-semibold text-xs text-white">Preserve Ratio</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
+                      <div className="font-semibold text-xs text-slate-900">Preserve Ratio</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
                         Longest side 512px (Recommended)
                       </div>
                     </button>
@@ -460,14 +460,14 @@ export const App: React.FC = () => {
                         setMode('pad');
                         setActivePreviewTab('source');
                       }}
-                      className={`p-2.5 rounded-xl border text-left transition ${
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
                         mode === 'pad'
-                          ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
-                          : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:text-slate-200'
+                          ? 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                       }`}
                     >
-                      <div className="font-semibold text-xs text-white">Square 512×512 Pad</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
+                      <div className="font-semibold text-xs text-slate-900">Square 512×512 Pad</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
                         Centered with transparent margins
                       </div>
                     </button>
@@ -478,14 +478,14 @@ export const App: React.FC = () => {
                         setMode('crop');
                         setActivePreviewTab('source');
                       }}
-                      className={`p-2.5 rounded-xl border text-left transition ${
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
                         mode === 'crop'
-                          ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-sm'
-                          : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:text-slate-200'
+                          ? 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                       }`}
                     >
-                      <div className="font-semibold text-xs text-white">Center Crop 512×512</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
+                      <div className="font-semibold text-xs text-slate-900">Center Crop 512×512</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
                         Fills entire 512×512 canvas
                       </div>
                     </button>
@@ -496,7 +496,7 @@ export const App: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   {/* Framerate */}
                   <div>
-                    <label className="text-xs font-medium text-slate-300 block mb-1.5">
+                    <label className="text-xs font-medium text-slate-700 block mb-1.5">
                       Framerate (Max 30 FPS)
                     </label>
                     <div className="flex gap-2">
@@ -505,10 +505,10 @@ export const App: React.FC = () => {
                           key={rate}
                           type="button"
                           onClick={() => setFps(rate)}
-                          className={`flex-1 py-1.5 rounded-lg border text-xs font-mono transition ${
+                          className={`flex-1 py-1.5 rounded-lg border text-xs font-mono transition cursor-pointer ${
                             fps === rate
-                              ? 'bg-sky-500 text-white font-bold border-sky-400 shadow-sm'
-                              : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:text-white'
+                              ? 'bg-sky-500 text-white font-bold border-sky-500 shadow-xs'
+                              : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
                           }`}
                         >
                           {rate} FPS
@@ -519,7 +519,7 @@ export const App: React.FC = () => {
 
                   {/* Compression Quality */}
                   <div>
-                    <label className="text-xs font-medium text-slate-300 block mb-1.5">
+                    <label className="text-xs font-medium text-slate-700 block mb-1.5">
                       Size & Quality Target
                     </label>
                     <div className="flex gap-2">
@@ -528,10 +528,10 @@ export const App: React.FC = () => {
                           key={q}
                           type="button"
                           onClick={() => setQuality(q)}
-                          className={`flex-1 py-1.5 rounded-lg border text-xs capitalize transition ${
+                          className={`flex-1 py-1.5 rounded-lg border text-xs capitalize transition cursor-pointer ${
                             quality === q
-                              ? 'bg-sky-500 text-white font-bold border-sky-400 shadow-sm'
-                              : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:text-white'
+                              ? 'bg-sky-500 text-white font-bold border-sky-500 shadow-xs'
+                              : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
                           }`}
                         >
                           {q}
@@ -548,7 +548,7 @@ export const App: React.FC = () => {
                   type="button"
                   onClick={() => handleConvert()}
                   disabled={isConverting}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-sky-500/25 flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-sky-500/20 flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isConverting ? (
                     <>
@@ -565,9 +565,9 @@ export const App: React.FC = () => {
 
                 {/* Progress bar */}
                 {isConverting && (
-                  <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
                     <div
-                      className="bg-gradient-to-r from-sky-500 to-emerald-400 h-full transition-all duration-150"
+                      className="bg-gradient-to-r from-sky-500 to-emerald-500 h-full transition-all duration-150"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -575,8 +575,8 @@ export const App: React.FC = () => {
 
                 {/* Error Banner */}
                 {errorMsg && (
-                  <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                     <span>{errorMsg}</span>
                   </div>
                 )}
@@ -616,33 +616,33 @@ export const App: React.FC = () => {
         />
 
         {/* Feature Highlights Grid */}
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-8 border-t border-slate-800/80">
-          <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800/60">
-            <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center mb-2.5">
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-8 border-t border-slate-200">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center mb-2.5">
               <Cpu className="w-4 h-4" />
             </div>
-            <h4 className="text-xs font-semibold text-white mb-1">WebCodecs Hardware Acceleration</h4>
-            <p className="text-[11px] text-slate-400 leading-normal">
+            <h4 className="text-xs font-semibold text-slate-900 mb-1">WebCodecs Hardware Acceleration</h4>
+            <p className="text-[11px] text-slate-500 leading-normal">
               Encodes VP9 frames locally in milliseconds with native browser hardware support.
             </p>
           </div>
 
-          <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800/60">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-2.5">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2.5">
               <Film className="w-4 h-4" />
             </div>
-            <h4 className="text-xs font-semibold text-white mb-1">Strict 256 KB & 3.0s Enforcement</h4>
-            <p className="text-[11px] text-slate-400 leading-normal">
+            <h4 className="text-xs font-semibold text-slate-900 mb-1">Strict 256 KB & 3.0s Enforcement</h4>
+            <p className="text-[11px] text-slate-500 leading-normal">
               Dynamically computes bitrates to ensure every sticker complies with Telegram's size cap.
             </p>
           </div>
 
-          <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800/60">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center mb-2.5">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mb-2.5">
               <Sparkles className="w-4 h-4" />
             </div>
-            <h4 className="text-xs font-semibold text-white mb-1">Interactive Reframe & Crop</h4>
-            <p className="text-[11px] text-slate-400 leading-normal">
+            <h4 className="text-xs font-semibold text-slate-900 mb-1">Interactive Reframe & Crop</h4>
+            <p className="text-[11px] text-slate-500 leading-normal">
               Drag to focus on your subject and easily crop out black letterbox bars.
             </p>
           </div>
@@ -650,9 +650,9 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-500">
         <p>
-          Built for Telegram Video Stickers • Compliant with <code className="text-slate-400">@Stickers</code> specifications
+          Built for Telegram Video Stickers • Compliant with <code className="text-slate-700 font-mono">@Stickers</code> specifications
         </p>
       </footer>
     </div>

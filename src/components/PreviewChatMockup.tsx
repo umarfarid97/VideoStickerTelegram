@@ -43,7 +43,7 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
   isGif,
   onDownload,
 }) => {
-  const [theme, setTheme] = useState<'tg-dark' | 'tg-light' | 'checkerboard'>('tg-dark');
+  const [theme, setTheme] = useState<'tg-dark' | 'tg-light' | 'checkerboard'>('tg-light');
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [playbackTime, setPlaybackTime] = useState<number>(startTime);
 
@@ -136,22 +136,22 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
   }
 
   return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3.5 sm:p-5 flex flex-col h-full space-y-2.5 sm:space-y-3">
+    <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-5 flex flex-col h-full space-y-2.5 sm:space-y-3 shadow-xs">
       {/* Header with Mode Switcher & Reframe Action */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
           <button
             type="button"
             onClick={() => onTabChange('source')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition ${
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition cursor-pointer ${
               activeTab === 'source'
-                ? 'bg-sky-500 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-white text-sky-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Film className="w-3.5 h-3.5" />
             <span>Trim Selection</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/30">
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
               {trimDuration.toFixed(1)}s
             </span>
           </button>
@@ -162,18 +162,18 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
               if (outputUrl) onTabChange('result');
             }}
             disabled={!outputUrl}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition ${
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition cursor-pointer ${
               activeTab === 'result'
-                ? 'bg-emerald-500 text-slate-950 font-bold shadow-sm'
+                ? 'bg-emerald-600 text-white font-bold shadow-xs'
                 : outputUrl
-                ? 'text-emerald-400 hover:text-white hover:bg-slate-800/60'
-                : 'text-slate-600 cursor-not-allowed'
+                ? 'text-emerald-700 hover:text-emerald-900 hover:bg-slate-200/60'
+                : 'text-slate-400 cursor-not-allowed'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Processed WebM</span>
             {outputReport && (
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/20">
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/10">
                 {outputReport.sizeKB} KB
               </span>
             )}
@@ -185,42 +185,42 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
           <button
             type="button"
             onClick={onOpenReframe}
-            className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-medium flex items-center gap-1.5 transition shadow-sm"
+            className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-xs font-medium flex items-center gap-1.5 transition shadow-xs cursor-pointer"
           >
-            <Crop className="w-3.5 h-3.5 text-sky-400" />
+            <Crop className="w-3.5 h-3.5 text-sky-600" />
             <span>Reframe</span>
           </button>
 
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px]">
-            <button
-              type="button"
-              onClick={() => setTheme('tg-dark')}
-              className={`px-2 py-1 rounded-lg transition ${
-                theme === 'tg-dark'
-                  ? 'bg-slate-800 text-sky-400 font-medium'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Dark
-            </button>
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px]">
             <button
               type="button"
               onClick={() => setTheme('tg-light')}
-              className={`px-2 py-1 rounded-lg transition ${
+              className={`px-2 py-1 rounded-lg transition cursor-pointer ${
                 theme === 'tg-light'
-                  ? 'bg-slate-800 text-sky-400 font-medium'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-sky-700 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Light
             </button>
             <button
               type="button"
+              onClick={() => setTheme('tg-dark')}
+              className={`px-2 py-1 rounded-lg transition cursor-pointer ${
+                theme === 'tg-dark'
+                  ? 'bg-white text-sky-700 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Dark
+            </button>
+            <button
+              type="button"
               onClick={() => setTheme('checkerboard')}
-              className={`px-2 py-1 rounded-lg transition ${
+              className={`px-2 py-1 rounded-lg transition cursor-pointer ${
                 theme === 'checkerboard'
-                  ? 'bg-slate-800 text-sky-400 font-medium'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-sky-700 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Alpha
@@ -230,25 +230,25 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
       </div>
 
       {/* Mode Status Pill */}
-      <div className="flex items-center justify-between text-xs px-1 text-slate-400">
+      <div className="flex flex-wrap items-center justify-between text-xs px-1 text-slate-500 gap-1.5">
         <div className="flex items-center gap-2">
           {isViewingResult ? (
-            <span className="inline-flex items-center gap-1.5 text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1.5 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               Showing Processed WebM (VP9, {outputReport?.sizeKB} KB)
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 text-sky-400 font-medium bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">
-              <Eye className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1.5 text-sky-800 font-medium bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+              <Eye className="w-3.5 h-3.5 text-sky-600" />
               Showing Selection: {startTime.toFixed(2)}s → {endTime.toFixed(2)}s
-              {isCropped && <span className="text-amber-400 font-bold">• Reframed Area</span>}
+              {isCropped && <span className="text-amber-700 font-bold">• Reframed Area</span>}
             </span>
           )}
         </div>
 
         {/* Time counter */}
         {activeTab === 'source' && !isGif && (
-          <span className="font-mono text-[11px] text-slate-400">
+          <span className="font-mono text-[11px] text-slate-500">
             {playbackTime.toFixed(1)}s / {endTime.toFixed(1)}s
           </span>
         )}
@@ -261,11 +261,14 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
             ? 'bg-[#0f1721] border-[#1e2c3c]'
             : theme === 'tg-light'
             ? 'bg-[#8ca8b8] border-[#7a96a6]'
-            : 'bg-checkerboard border-slate-700'
+            : 'bg-checkerboard border-slate-200'
         }`}
       >
         {theme === 'tg-dark' && (
           <div className="absolute inset-0 opacity-20 telegram-bubble-pattern pointer-events-none" />
+        )}
+        {theme === 'tg-light' && (
+          <div className="absolute inset-0 opacity-30 telegram-light-pattern pointer-events-none" />
         )}
 
         {/* Center Sticker Container */}
@@ -341,20 +344,20 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
           {/* Bottom metadata tags */}
           {currentMediaUrl && (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-slate-900/90 backdrop-blur-md border border-slate-700/60 text-slate-300">
+              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-md border border-slate-200 text-slate-700 shadow-xs">
                 {dimensions.width} × {dimensions.height} px
               </span>
 
               {isViewingResult ? (
                 <>
-                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
                     VP9 WebM • {outputReport?.sizeKB} KB
                   </span>
                   {onDownload && (
                     <button
                       type="button"
                       onClick={onDownload}
-                      className="text-[11px] font-medium px-3 py-1 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center gap-1 shadow-md shadow-emerald-500/20 transition active:scale-95"
+                      className="text-[11px] font-medium px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 shadow-md shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
                     >
                       <Download className="w-3 h-3" />
                       <span>Download</span>
@@ -363,11 +366,11 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
                 </>
               ) : (
                 <>
-                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-medium">
                     Loop: {trimDuration.toFixed(2)}s
                   </span>
                   {isCropped && (
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-medium">
                       Reframed
                     </span>
                   )}

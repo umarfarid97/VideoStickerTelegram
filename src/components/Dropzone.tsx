@@ -86,18 +86,18 @@ export const Dropzone: React.FC<DropzoneProps> = ({ currentFile, onFileSelect, o
           onClick={() => fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 ${
             isDragging
-              ? 'border-sky-400 bg-sky-500/10 scale-[1.01]'
-              : 'border-slate-700 hover:border-slate-600 bg-slate-900/50 hover:bg-slate-900/80'
+              ? 'border-sky-500 bg-sky-50 scale-[1.01]'
+              : 'border-slate-300 hover:border-sky-400 bg-white hover:bg-slate-50/80 shadow-xs'
           }`}
         >
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-blue-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-inner">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-sky-500/10 to-blue-500/10 border border-sky-500/20 flex items-center justify-center text-sky-600 shadow-xs">
             <UploadCloud className="w-8 h-8" />
           </div>
 
-          <h3 className="text-lg font-semibold text-white mb-1">
+          <h3 className="text-lg font-semibold text-slate-900 mb-1">
             Drop your video or animated GIF here
           </h3>
-          <p className="text-xs text-slate-400 max-w-md mx-auto mb-5">
+          <p className="text-xs text-slate-500 max-w-md mx-auto mb-5">
             Supports MP4, WebM, MOV, and GIF. Everything converts in your browser with zero server uploads.
           </p>
 
@@ -108,7 +108,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({ currentFile, onFileSelect, o
                 e.stopPropagation();
                 fileInputRef.current?.click();
               }}
-              className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-sky-500/20 transition active:scale-95"
+              className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-medium text-xs flex items-center gap-2 shadow-md shadow-sky-500/20 transition active:scale-95 cursor-pointer"
             >
               <FileVideo className="w-4 h-4" />
               <span>Browse File</span>
@@ -121,17 +121,17 @@ export const Dropzone: React.FC<DropzoneProps> = ({ currentFile, onFileSelect, o
                 e.stopPropagation();
                 handleTryDemo();
               }}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs flex items-center gap-2 transition active:scale-95 disabled:opacity-50"
+              className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs flex items-center gap-2 transition active:scale-95 disabled:opacity-50 shadow-xs cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-amber-400" />
+              <Sparkles className="w-4 h-4 text-amber-500" />
               <span>{isGeneratingDemo ? 'Generating demo...' : 'Try Demo Sticker'}</span>
             </button>
           </div>
         </div>
       ) : (
-        <div className="bg-slate-900/80 border border-slate-700/80 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 shrink-0">
               {currentFile.type.startsWith('image/gif') ? (
                 <ImageIcon className="w-6 h-6" />
               ) : (
@@ -140,15 +140,15 @@ export const Dropzone: React.FC<DropzoneProps> = ({ currentFile, onFileSelect, o
             </div>
             <div className="truncate text-left flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-white truncate block">
+                <span className="font-semibold text-sm text-slate-900 truncate block">
                   {currentFile.name}
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
                   {currentFile.type.startsWith('image/gif') ? 'GIF' : 'VIDEO'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Original file size: <span className="text-slate-300 font-mono">{formatSize(currentFile.size)}</span>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Original file size: <span className="text-slate-700 font-mono">{formatSize(currentFile.size)}</span>
               </p>
             </div>
           </div>
@@ -156,14 +156,14 @@ export const Dropzone: React.FC<DropzoneProps> = ({ currentFile, onFileSelect, o
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium flex items-center gap-1.5 transition"
+              className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium flex items-center gap-1.5 transition shadow-xs cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Change File</span>
             </button>
             <button
               onClick={onReset}
-              className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-medium transition"
+              className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-medium transition cursor-pointer"
             >
               Remove
             </button>

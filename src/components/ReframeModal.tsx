@@ -186,19 +186,19 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
   const cropPixelH = Math.round(localCrop.height * origHeight);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-4xl w-full flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
+      <div className="bg-white border border-slate-200 rounded-3xl max-w-4xl w-full flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+            <div className="w-8 h-8 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
               <Crop className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white m-0">
+              <h3 className="text-base font-bold text-slate-900 m-0">
                 Reframe & Crop Area
               </h3>
-              <p className="text-xs text-slate-400 m-0">
+              <p className="text-xs text-slate-500 m-0">
                 Drag the box to focus on your subject or crop out black bars
               </p>
             </div>
@@ -206,7 +206,7 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -327,8 +327,8 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
           {/* Preset Buttons & Controls Sidebar */}
           <div className="w-full lg:w-72 space-y-4 text-xs">
             {/* Quick Framing Presets */}
-            <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2.5">
-              <span className="font-semibold text-slate-300 block">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
+              <span className="font-semibold text-slate-800 block">
                 Quick Framing Presets
               </span>
 
@@ -336,72 +336,72 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
                 <button
                   type="button"
                   onClick={handleSquareCenter}
-                  className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 flex flex-col items-center gap-1 transition"
+                  className="p-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 flex flex-col items-center gap-1 transition shadow-2xs cursor-pointer"
                 >
-                  <Maximize2 className="w-4 h-4 text-sky-400" />
+                  <Maximize2 className="w-4 h-4 text-sky-600" />
                   <span className="font-medium text-[11px]">1:1 Square</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleResetFull}
-                  className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 flex flex-col items-center gap-1 transition"
+                  className="p-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 flex flex-col items-center gap-1 transition shadow-2xs cursor-pointer"
                 >
-                  <RotateCcw className="w-4 h-4 text-emerald-400" />
+                  <RotateCcw className="w-4 h-4 text-emerald-600" />
                   <span className="font-medium text-[11px]">Full Frame</span>
                 </button>
               </div>
             </div>
 
             {/* Black Bar Removal Presets */}
-            <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2.5">
-              <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-amber-400" />
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
+              <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-amber-600" />
                 <span>Remove Black Bars</span>
               </span>
 
               <button
                 type="button"
                 onClick={handleRemoveTopBottomBars}
-                className="w-full p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-between transition text-left"
+                className="w-full p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200 flex items-center justify-between transition text-left cursor-pointer"
               >
                 <div>
                   <div className="font-medium text-xs">Trim Movie Letterbox</div>
-                  <div className="text-[10px] text-amber-400/80">
+                  <div className="text-[10px] text-amber-700">
                     Crops top & bottom bars (2.35:1)
                   </div>
                 </div>
-                <Minimize2 className="w-4 h-4 shrink-0" />
+                <Minimize2 className="w-4 h-4 shrink-0 text-amber-600" />
               </button>
 
               <button
                 type="button"
                 onClick={handleRemoveSideBars}
-                className="w-full p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-between transition text-left"
+                className="w-full p-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-between transition text-left shadow-2xs cursor-pointer"
               >
                 <div>
                   <div className="font-medium text-xs">Trim Side Pillarbox</div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-[10px] text-slate-500">
                     Crops left & right vertical bars
                   </div>
                 </div>
-                <Minimize2 className="w-4 h-4 shrink-0" />
+                <Minimize2 className="w-4 h-4 shrink-0 text-slate-500" />
               </button>
             </div>
 
             {/* Hint */}
-            <p className="text-[11px] text-slate-400 px-1 leading-relaxed">
-              💡 Telegram stickers scale the longest side to <strong>512px</strong>. Reframing closer to your subject makes your sticker bigger and clearer!
+            <p className="text-[11px] text-slate-500 px-1 leading-relaxed">
+              💡 Telegram stickers scale the longest side to <strong className="text-slate-700">512px</strong>. Reframing closer to your subject makes your sticker bigger and clearer!
             </p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/40 flex items-center justify-between gap-3">
+        <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={handleResetFull}
-            className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium transition"
+            className="px-4 py-2 rounded-xl text-slate-500 hover:text-slate-900 text-xs font-medium transition cursor-pointer"
           >
             Reset Full Frame
           </button>
@@ -410,14 +410,14 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleApply}
-              className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs flex items-center gap-1.5 shadow-lg shadow-sky-500/20 transition active:scale-95"
+              className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition active:scale-95 cursor-pointer"
             >
               <Check className="w-4 h-4" />
               <span>Apply Reframe</span>
