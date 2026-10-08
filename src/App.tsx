@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Sparkles,
   Settings2,
-  Maximize2,
   Cpu,
   Loader2,
   AlertCircle,
@@ -11,6 +10,8 @@ import {
   Zap,
   Crop,
   Sliders,
+  Square,
+  Check,
 } from 'lucide-react';
 import { Header } from './components/Header';
 import { Dropzone } from './components/Dropzone';
@@ -31,6 +32,8 @@ import {
 } from './utils/converter';
 import { parseGIF, decompressFrames } from 'gifuct-js';
 
+type FramingMode = 'full' | 'square512' | 'free';
+
 export const App: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
@@ -41,17 +44,19 @@ export const App: React.FC = () => {
   const [origWidth, setOrigWidth] = useState<number>(512);
   const [origHeight, setOrigHeight] = useState<number>(512);
 
-  // Options
+  // Framing & Dimensions state
+  const [framingMode, setFramingMode] = useState<FramingMode>('full');
+  const [modalAspectMode, setModalAspectMode] = useState<'1:1' | 'free'>('free');
   const [mode, setMode] = useState<'fit' | 'pad' | 'crop'>('fit');
+  const [crop, setCrop] = useState<CropArea>({ x: 0, y: 0, width: 1, height: 1 });
+  const [isReframeOpen, setIsReframeOpen] = useState<boolean>(false);
+
+  // Trimming
   const [startTime, setStartTime] = useState<number>(0);
   const [endTime, setEndTime] = useState<number>(3.0);
   const [fps, setFps] = useState<number>(30);
-  const [quality, setQuality] = useState<'high' | 'medium' | 'low'>('medium');
+  const [quality, setQuality] = useState<'high' | 'medium' | 'low'>('high');
   const [speedUpToFit, setSpeedUpToFit] = useState<boolean>(true);
-
-  // Reframe & Crop Area State (0 to 1 normalized coordinates)
-  const [crop, setCrop] = useState<CropArea>({ x: 0, y: 0, width: 1, height: 1 });
-  const [isReframeOpen, setIsReframeOpen] = useState<boolean>(false);
 
   // Scrubbing & Active Preview View
   const [activePreviewTab, setActivePreviewTab] = useState<'source' | 'result'>('source');
@@ -70,6 +75,53 @@ export const App: React.FC = () => {
 
   const supported = isWebCodecsSupported();
 
+  // Helper for computing centered 1:1 square crop
+  const getCenteredSquareCrop = useCallback((w: number, h: number): CropArea => {
+    if (w <= 0 || h <= 0) return { x: 0, y: 0, width: 1, height: 1 };
+    if (w >= h) {
+      const wFraction = h / w;
+      const xOffset = (1 - wFraction) / 2;
+      return { x: Math.max(0, xOffset), y: 0, width: wFraction, height: 1 };
+    } else {
+      const hFraction = w / h;
+      const yOffset = (1 - hFraction) / 2;
+      return { x: 0, y: Math.max(0, yOffset), width: 1, height: hFraction };
+    }
+  }, []);
+
+  // Selection handlers for the 3 framing options
+  const handleSelectFull = () => {
+    setFramingMode('full');
+    setCrop({ x: 0, y: 0, width: 1, height: 1 });
+    setMode('fit');
+    setActivePreviewTab('source');
+  };
+
+  const handleSelectSquare512 = (openModal = false) => {
+    setFramingMode('square512');
+    setModalAspectMode('1:1');
+    setMode('fit');
+    // If currently full or not roughly 1:1, reset to centered 1:1 square
+    const curAspect = (crop.width * origWidth) / Math.max(1, crop.height * origHeight);
+    if ((crop.width === 1 && crop.height === 1) || Math.abs(curAspect - 1) > 0.05) {
+      setCrop(getCenteredSquareCrop(origWidth, origHeight));
+    }
+    setActivePreviewTab('source');
+    if (openModal) {
+      setIsReframeOpen(true);
+    }
+  };
+
+  const handleSelectFree = (openModal = false) => {
+    setFramingMode('free');
+    setModalAspectMode('free');
+    setMode('fit');
+    setActivePreviewTab('source');
+    if (openModal) {
+      setIsReframeOpen(true);
+    }
+  };
+
   // Reset or clear file
   const handleReset = () => {
     if (mediaUrl) URL.revokeObjectURL(mediaUrl);
@@ -84,6 +136,8 @@ export const App: React.FC = () => {
     setActivePreviewTab('source');
     setScrubTime(null);
     setCrop({ x: 0, y: 0, width: 1, height: 1 });
+    setFramingMode('full');
+    setMode('fit');
   };
 
   // When a new file is dropped/chosen
@@ -168,7 +222,7 @@ export const App: React.FC = () => {
       setOutputUrl(url);
       setValidationReport(res.report);
 
-      // Automatically switch preview to display the processed result!
+      // Automatically switch preview to display the processed result
       setActivePreviewTab('result');
 
       if (res.report.isValid) {
@@ -198,8 +252,10 @@ export const App: React.FC = () => {
     document.body.removeChild(a);
   };
 
+  // Dimensions computation
   const currentDims = calculateDimensions(origWidth, origHeight, mode, crop);
-  const isCropped = crop.x > 0 || crop.y > 0 || crop.width < 1 || crop.height < 1;
+  const fullDims = calculateDimensions(origWidth, origHeight, 'fit', { x: 0, y: 0, width: 1, height: 1 });
+  const isCropped = crop.x > 0 || crop.y > 0 || crop.width < 0.999 || crop.height < 0.999;
 
   // Auto clean up URLs
   useEffect(() => {
@@ -267,7 +323,14 @@ export const App: React.FC = () => {
                   height: currentDims.canvasHeight,
                 }}
                 crop={crop}
-                onOpenReframe={() => setIsReframeOpen(true)}
+                onOpenReframe={() => {
+                  if (framingMode === 'full') {
+                    handleSelectSquare512(true);
+                  } else {
+                    setModalAspectMode(framingMode === 'square512' ? '1:1' : 'free');
+                    setIsReframeOpen(true);
+                  }
+                }}
                 outputReport={validationReport}
                 isGif={isGif}
                 onDownload={handleDownload}
@@ -300,200 +363,211 @@ export const App: React.FC = () => {
                 onToggleSpeedUp={setSpeedUpToFit}
               />
 
-              {/* Area Reframing & Black Bar Removal Control Box */}
-              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xs">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              {/* Reframing & Sizing Card (Telegram 512px Rule) */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <Crop className="w-4 h-4 text-sky-600" />
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-900 m-0">Area Reframing & Black Bars</h3>
+                      <h3 className="text-sm font-semibold text-slate-900 m-0">
+                        Reframing & Sizing (Telegram 512px Rule)
+                      </h3>
                       <p className="text-[11px] text-slate-500 m-0">
-                        Choose your focus subject and remove letterbox black bars
+                        Choose sticker framing style according to Telegram specifications
                       </p>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsReframeOpen(true)}
-                    className="px-3.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition active:scale-95 cursor-pointer"
-                  >
-                    <Sliders className="w-3.5 h-3.5" />
-                    <span>Select Area to Reframe</span>
-                  </button>
+                  {framingMode !== 'full' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalAspectMode(framingMode === 'square512' ? '1:1' : 'free');
+                        setIsReframeOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition active:scale-95 cursor-pointer"
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      <span>Adjust Framing Box</span>
+                    </button>
+                  )}
                 </div>
 
-                {/* Black Bar Handling Modes */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-700 block">
-                    Black Bar & Padding Choice
-                  </label>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* Option 1: Remove Black Bars */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCrop({ x: 0, y: 0.12, width: 1, height: 0.76 });
-                        setActivePreviewTab('source');
-                      }}
-                      className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-                        crop.y === 0.12 && crop.height === 0.76
-                          ? 'bg-amber-50 border-amber-400 text-amber-900 shadow-xs'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                      }`}
-                    >
-                      <div className="font-semibold text-xs text-slate-900 flex items-center gap-1">
-                        <span>🎬 Remove Black Bars</span>
+                {/* 3 Clear Framing Options */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Choice 1: Keep Original Full */}
+                  <div
+                    onClick={handleSelectFull}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between ${
+                      framingMode === 'full'
+                        ? 'bg-sky-50/70 border-sky-500 ring-2 ring-sky-500/20 shadow-xs'
+                        : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100/70 hover:border-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-7 h-7 rounded-lg bg-sky-100/70 text-sky-700 flex items-center justify-center">
+                          <Film className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 font-semibold shadow-2xs">
+                          {fullDims.canvasWidth} × {fullDims.canvasHeight} px
+                        </span>
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-1">
-                        Crops out top & bottom movie letterbox
-                      </div>
-                    </button>
-
-                    {/* Option 2: Transparent Padding */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('pad');
-                        setCrop({ x: 0, y: 0, width: 1, height: 1 });
-                        setActivePreviewTab('source');
-                      }}
-                      className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-                        mode === 'pad' && crop.width === 1 && crop.height === 1
-                          ? 'bg-sky-50 border-sky-400 text-sky-900 shadow-xs'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                      }`}
-                    >
-                      <div className="font-semibold text-xs text-slate-900 flex items-center gap-1">
-                        <span>🫧 Transparent Padding</span>
-                      </div>
-                      <div className="text-[10px] text-slate-500 mt-1">
-                        Clean transparent margins in Telegram
-                      </div>
-                    </button>
-
-                    {/* Option 3: Keep Original Full Frame */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('fit');
-                        setCrop({ x: 0, y: 0, width: 1, height: 1 });
-                        setActivePreviewTab('source');
-                      }}
-                      className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-                        mode === 'fit' && crop.width === 1 && crop.height === 1
-                          ? 'bg-sky-50 border-sky-400 text-sky-900 shadow-xs'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                      }`}
-                    >
-                      <div className="font-semibold text-xs text-slate-900 flex items-center gap-1">
+                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
                         <span>Keep Original Full</span>
+                        {framingMode === 'full' && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0" />}
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-1">
-                        Keep full original video without cropping
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                        Full video with no crop. Preserves original proportions within 512px.
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400">Telegram Fit</span>
+                      <span className="font-medium text-sky-700">No Cropping</span>
+                    </div>
+                  </div>
+
+                  {/* Choice 2: Telegram sizing 512x512 (can select framing) */}
+                  <div
+                    onClick={() => handleSelectSquare512(false)}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between ${
+                      framingMode === 'square512'
+                        ? 'bg-sky-50/70 border-sky-500 ring-2 ring-sky-500/20 shadow-xs'
+                        : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100/70 hover:border-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100/70 text-emerald-700 flex items-center justify-center">
+                          <Square className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 font-semibold shadow-2xs">
+                          512 × 512 px
+                        </span>
                       </div>
-                    </button>
+                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                        <span>Telegram Sizing 512×512</span>
+                        {framingMode === 'square512' && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0" />}
+                      </div>
+                      <div className="inline-block mt-0.5 text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        Can select framing
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                        Locked 1:1 square crop. Guarantees 512×512 sticker without black bars.
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-slate-200/60">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectSquare512(true);
+                        }}
+                        className="w-full py-1.5 px-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-medium text-[11px] flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer"
+                      >
+                        <Sliders className="w-3 h-3" />
+                        <span>Select Framing</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Choice 3: Free reframing (can select framing) */}
+                  <div
+                    onClick={() => handleSelectFree(false)}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between ${
+                      framingMode === 'free'
+                        ? 'bg-sky-50/70 border-sky-500 ring-2 ring-sky-500/20 shadow-xs'
+                        : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100/70 hover:border-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-7 h-7 rounded-lg bg-amber-100/70 text-amber-700 flex items-center justify-center">
+                          <Crop className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 font-semibold shadow-2xs">
+                          {framingMode === 'free' ? `${currentDims.canvasWidth} × ${currentDims.canvasHeight} px` : 'Custom'}
+                        </span>
+                      </div>
+                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                        <span>Free Reframing</span>
+                        {framingMode === 'free' && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0" />}
+                      </div>
+                      <div className="inline-block mt-0.5 text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                        Can select framing
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                        Custom rectangular crop box. Zoom in on subjects or remove movie black bars.
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-slate-200/60">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectFree(true);
+                        }}
+                        className="w-full py-1.5 px-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-medium text-[11px] flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer"
+                      >
+                        <Crop className="w-3 h-3" />
+                        <span>Select Framing</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
+                {/* Active Framing Info Bar when cropped */}
                 {isCropped && (
-                  <div className="flex items-center justify-between text-xs bg-sky-50 border border-sky-200 px-3 py-2 rounded-xl text-sky-800">
-                    <span>
-                      Active Reframe: {Math.round(crop.width * origWidth)} × {Math.round(crop.height * origHeight)} px
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCrop({ x: 0, y: 0, width: 1, height: 1 });
-                        setActivePreviewTab('source');
-                      }}
-                      className="text-[11px] underline text-sky-700 hover:text-sky-900 font-medium cursor-pointer"
-                    >
-                      Reset Full Frame
-                    </button>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs bg-sky-50/80 border border-sky-200 px-3.5 py-2.5 rounded-xl text-sky-900">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                      <span>
+                        Framed Area: <strong>{Math.round(crop.width * origWidth)} × {Math.round(crop.height * origHeight)} px</strong>
+                        <span className="text-slate-400 mx-1.5">➔</span>
+                        Sticker Output: <strong>{currentDims.canvasWidth} × {currentDims.canvasHeight} px</strong>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalAspectMode(framingMode === 'square512' ? '1:1' : 'free');
+                          setIsReframeOpen(true);
+                        }}
+                        className="text-[11px] font-semibold text-sky-700 hover:text-sky-900 underline cursor-pointer"
+                      >
+                        Adjust Box
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={handleSelectFull}
+                        className="text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer"
+                      >
+                        Reset to Full
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Conversion Settings Box */}
+              {/* Framerate & Compression Settings Box (Cleaned up, no duplicate dimensions) */}
               <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
                   <Settings2 className="w-4 h-4 text-sky-600" />
-                  <h3 className="text-sm font-semibold text-slate-900 m-0">Sticker Dimensions & Codec Settings</h3>
-                </div>
-
-                {/* Dimension Modes */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-700 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Maximize2 className="w-3.5 h-3.5 text-slate-500" />
-                      Dimension Fitting Mode (Telegram 512px Rule)
-                    </span>
-                    <span className="font-mono text-sky-700 font-semibold text-[11px]">
-                      {currentDims.canvasWidth} × {currentDims.canvasHeight} px
-                    </span>
-                  </label>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('fit');
-                        setActivePreviewTab('source');
-                      }}
-                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                        mode === 'fit'
-                          ? 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                      }`}
-                    >
-                      <div className="font-semibold text-xs text-slate-900">Preserve Ratio</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
-                        Longest side 512px (Recommended)
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('pad');
-                        setActivePreviewTab('source');
-                      }}
-                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                        mode === 'pad'
-                          ? 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                      }`}
-                    >
-                      <div className="font-semibold text-xs text-slate-900">Square 512×512 Pad</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
-                        Centered with transparent margins
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('crop');
-                        setActivePreviewTab('source');
-                      }}
-                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                        mode === 'crop'
-                          ? 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                      }`}
-                    >
-                      <div className="font-semibold text-xs text-slate-900">Center Crop 512×512</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
-                        Fills entire 512×512 canvas
-                      </div>
-                    </button>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 m-0">Framerate & Codec Settings</h3>
+                    <p className="text-[11px] text-slate-500 m-0">
+                      VP9 encoding parameters to maintain fluid motion within Telegram's 256 KB limit
+                    </p>
                   </div>
                 </div>
 
                 {/* Framerate & Quality Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Framerate */}
                   <div>
                     <label className="text-xs font-medium text-slate-700 block mb-1.5">
@@ -613,6 +687,10 @@ export const App: React.FC = () => {
           }}
           origWidth={origWidth}
           origHeight={origHeight}
+          initialAspectMode={modalAspectMode}
+          onApplyMode={(appliedMode) => {
+            setFramingMode(appliedMode);
+          }}
         />
 
         {/* Feature Highlights Grid */}
