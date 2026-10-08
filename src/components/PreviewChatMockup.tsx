@@ -43,7 +43,6 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
   isGif,
   onDownload,
 }) => {
-  const [theme, setTheme] = useState<'tg-dark' | 'tg-light' | 'checkerboard'>('tg-light');
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [playbackTime, setPlaybackTime] = useState<number>(startTime);
 
@@ -180,53 +179,15 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
           </button>
         </div>
 
-        {/* Reframe button & Theme Toggles */}
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onOpenReframe}
-            className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-xs font-medium flex items-center gap-1.5 transition shadow-xs cursor-pointer"
-          >
-            <Crop className="w-3.5 h-3.5 text-sky-600" />
-            <span>Reframe</span>
-          </button>
-
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px]">
-            <button
-              type="button"
-              onClick={() => setTheme('tg-light')}
-              className={`px-2 py-1 rounded-lg transition cursor-pointer ${
-                theme === 'tg-light'
-                  ? 'bg-white text-sky-700 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Light
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme('tg-dark')}
-              className={`px-2 py-1 rounded-lg transition cursor-pointer ${
-                theme === 'tg-dark'
-                  ? 'bg-white text-sky-700 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Dark
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme('checkerboard')}
-              className={`px-2 py-1 rounded-lg transition cursor-pointer ${
-                theme === 'checkerboard'
-                  ? 'bg-white text-sky-700 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Alpha
-            </button>
-          </div>
-        </div>
+        {/* Reframe button */}
+        <button
+          type="button"
+          onClick={onOpenReframe}
+          className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-xs font-medium flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+        >
+          <Crop className="w-3.5 h-3.5 text-sky-600" />
+          <span>Reframe</span>
+        </button>
       </div>
 
       {/* Mode Status Pill */}
@@ -255,21 +216,8 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
       </div>
 
       {/* Telegram Chat Simulation Stage */}
-      <div
-        className={`flex-1 min-h-[220px] sm:min-h-[340px] rounded-2xl flex items-center justify-center p-3 sm:p-6 relative overflow-hidden transition-colors border group ${
-          theme === 'tg-dark'
-            ? 'bg-[#0f1721] border-[#1e2c3c]'
-            : theme === 'tg-light'
-            ? 'bg-[#8ca8b8] border-[#7a96a6]'
-            : 'bg-checkerboard border-slate-200'
-        }`}
-      >
-        {theme === 'tg-dark' && (
-          <div className="absolute inset-0 opacity-20 telegram-bubble-pattern pointer-events-none" />
-        )}
-        {theme === 'tg-light' && (
-          <div className="absolute inset-0 opacity-30 telegram-light-pattern pointer-events-none" />
-        )}
+      <div className="flex-1 min-h-[220px] sm:min-h-[340px] rounded-2xl flex items-center justify-center p-3 sm:p-6 relative overflow-hidden transition-colors border group bg-[#8ca8b8] border-[#7a96a6]">
+        <div className="absolute inset-0 opacity-30 telegram-light-pattern pointer-events-none" />
 
         {/* Center Sticker Container */}
         <div className="relative z-10 flex flex-col items-center max-w-full">
