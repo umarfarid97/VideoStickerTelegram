@@ -107,6 +107,17 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
     }
   }, [isOpen, initialAspectMode, crop, forceSquareCrop]);
 
+  // Prevent background page scrolling while modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const origOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = origOverflow;
+      };
+    }
+  }, [isOpen]);
+
   const handleSwitchAspectMode = (mode: '1:1' | 'free') => {
     setAspectMode(mode);
     if (mode === '1:1') {
@@ -161,6 +172,10 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
   const handleMouseMove = useCallback(
     (e: MouseEvent | TouchEvent) => {
       if (!isDragging || !containerRef.current) return;
+
+      if ('touches' in e && e.cancelable) {
+        e.preventDefault();
+      }
 
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
@@ -289,14 +304,16 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', stopDrag);
-      window.addEventListener('touchmove', handleMouseMove);
+      window.addEventListener('touchmove', handleMouseMove, { passive: false });
       window.addEventListener('touchend', stopDrag);
+      window.addEventListener('touchcancel', stopDrag);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', stopDrag);
       window.removeEventListener('touchmove', handleMouseMove);
       window.removeEventListener('touchend', stopDrag);
+      window.removeEventListener('touchcancel', stopDrag);
     };
   }, [isDragging, handleMouseMove, stopDrag]);
 
@@ -389,12 +406,16 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col lg:flex-row gap-6 items-center justify-center">
+        <div
+          className={`flex-1 p-4 sm:p-6 flex flex-col lg:flex-row gap-6 items-center justify-center overscroll-contain ${
+            isDragging ? 'overflow-hidden select-none' : 'overflow-y-auto'
+          }`}
+        >
           {/* Visual Video Stage */}
           <div className="flex-1 w-full max-w-[560px] flex items-center justify-center">
             <div
               ref={containerRef}
-              className="relative select-none overflow-hidden rounded-2xl bg-black border border-slate-800 shadow-2xl max-h-[420px] w-auto h-auto flex items-center justify-center"
+              className="relative select-none overflow-hidden rounded-2xl bg-black border border-slate-800 shadow-2xl max-h-[420px] w-auto h-auto flex items-center justify-center touch-none overscroll-contain"
               style={{
                 aspectRatio: `${origWidth} / ${origHeight}`,
                 maxWidth: '100%',
@@ -450,9 +471,10 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
                 }}
                 onTouchStart={(e) => {
                   e.stopPropagation();
+                  if (e.cancelable) e.preventDefault();
                   startDrag(null, e.touches[0].clientX, e.touches[0].clientY);
                 }}
-                className="absolute z-20 border-2 border-sky-400 bg-sky-400/10 cursor-move transition-shadow hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]"
+                className="absolute z-20 border-2 border-sky-400 bg-sky-400/10 cursor-move transition-shadow hover:shadow-[0_0_20px_rgba(56,189,248,0.4)] touch-none select-none"
                 style={{
                   left: `${localCrop.x * 100}%`,
                   top: `${localCrop.y * 100}%`,
@@ -478,16 +500,17 @@ export const ReframeModal: React.FC<ReframeModalProps> = ({
                     }}
                     onTouchStart={(e) => {
                       e.stopPropagation();
+                      if (e.cancelable) e.preventDefault();
                       startDrag(pos, e.touches[0].clientX, e.touches[0].clientY);
                     }}
-                    className={`absolute w-3.5 h-3.5 bg-sky-400 border border-white rounded-full z-30 transition-transform hover:scale-125 ${
+                    className={`absolute w-4 h-4 bg-sky-400 border-2 border-white rounded-full z-30 transition-transform hover:scale-125 touch-none select-none before:content-[''] before:absolute before:-inset-3 before:rounded-full ${
                       pos === 'nw'
-                        ? '-top-1.5 -left-1.5 cursor-nwse-resize'
+                        ? '-top-2 -left-2 cursor-nwse-resize'
                         : pos === 'ne'
-                        ? '-top-1.5 -right-1.5 cursor-nesw-resize'
+                        ? '-top-2 -right-2 cursor-nesw-resize'
                         : pos === 'sw'
-                        ? '-bottom-1.5 -left-1.5 cursor-nesw-resize'
-                        : '-bottom-1.5 -right-1.5 cursor-nwse-resize'
+                        ? '-bottom-2 -left-2 cursor-nesw-resize'
+                        : '-bottom-2 -right-2 cursor-nwse-resize'
                     }`}
                   />
                 ))}
