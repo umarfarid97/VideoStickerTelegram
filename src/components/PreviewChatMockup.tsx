@@ -136,7 +136,7 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
   }
 
   return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col h-full space-y-3">
+    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3.5 sm:p-5 flex flex-col h-full space-y-2.5 sm:space-y-3">
       {/* Header with Mode Switcher & Reframe Action */}
       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
         <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
@@ -256,7 +256,7 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
 
       {/* Telegram Chat Simulation Stage */}
       <div
-        className={`flex-1 min-h-[340px] rounded-2xl flex items-center justify-center p-6 relative overflow-hidden transition-colors border group ${
+        className={`flex-1 min-h-[220px] sm:min-h-[340px] rounded-2xl flex items-center justify-center p-3 sm:p-6 relative overflow-hidden transition-colors border group ${
           theme === 'tg-dark'
             ? 'bg-[#0f1721] border-[#1e2c3c]'
             : theme === 'tg-light'
@@ -269,10 +269,10 @@ export const PreviewChatMockup: React.FC<PreviewChatMockupProps> = ({
         )}
 
         {/* Center Sticker Container */}
-        <div className="relative z-10 flex flex-col items-center">
+        <div className="relative z-10 flex flex-col items-center max-w-full">
           {currentMediaUrl ? (
             <div
-              className="relative group rounded-xl drop-shadow-2xl overflow-hidden flex items-center justify-center cursor-pointer bg-black/40"
+              className="relative group rounded-xl drop-shadow-2xl overflow-hidden flex items-center justify-center cursor-pointer bg-black/40 max-w-full max-h-[220px] sm:max-h-[280px]"
               style={{
                 width: `${boxW}px`,
                 height: `${boxH}px`,

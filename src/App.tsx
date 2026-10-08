@@ -251,9 +251,36 @@ export const App: React.FC = () => {
 
         {/* Main Workspace when file loaded */}
         {file && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Column: Settings, Timeline, Conversion */}
-            <div className="lg:col-span-7 space-y-5">
+          <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start">
+            {/* Top on Mobile (order-1), Right Side on Desktop (lg:order-2 lg:col-span-5) */}
+            <div className="w-full order-1 lg:order-2 lg:col-span-5 space-y-5 lg:sticky lg:top-6">
+              <PreviewChatMockup
+                sourceUrl={mediaUrl}
+                outputUrl={outputUrl}
+                activeTab={activePreviewTab}
+                onTabChange={setActivePreviewTab}
+                startTime={startTime}
+                endTime={endTime}
+                scrubTime={scrubTime}
+                dimensions={{
+                  width: currentDims.canvasWidth,
+                  height: currentDims.canvasHeight,
+                }}
+                crop={crop}
+                onOpenReframe={() => setIsReframeOpen(true)}
+                outputReport={validationReport}
+                isGif={isGif}
+                onDownload={handleDownload}
+              />
+
+              {/* Desktop-only placement of Telegram guide */}
+              <div className="hidden lg:block">
+                <TelegramBotGuide />
+              </div>
+            </div>
+
+            {/* Below Preview on Mobile (order-2), Left Side on Desktop (lg:order-1 lg:col-span-7) */}
+            <div className="w-full order-2 lg:order-1 lg:col-span-7 space-y-5">
               {/* Timeline Trimmer with scrub and range sync */}
               <TimelineTrimmer
                 duration={naturalDuration}
@@ -564,31 +591,11 @@ export const App: React.FC = () => {
                   isProcessing={isConverting}
                 />
               )}
-            </div>
 
-            {/* Right Column: Unified Telegram Chat Simulation Preview */}
-            <div className="lg:col-span-5 space-y-5">
-              <PreviewChatMockup
-                sourceUrl={mediaUrl}
-                outputUrl={outputUrl}
-                activeTab={activePreviewTab}
-                onTabChange={setActivePreviewTab}
-                startTime={startTime}
-                endTime={endTime}
-                scrubTime={scrubTime}
-                dimensions={{
-                  width: currentDims.canvasWidth,
-                  height: currentDims.canvasHeight,
-                }}
-                crop={crop}
-                onOpenReframe={() => setIsReframeOpen(true)}
-                outputReport={validationReport}
-                isGif={isGif}
-                onDownload={handleDownload}
-              />
-
-              {/* Step-by-Step Telegram Guide */}
-              <TelegramBotGuide />
+              {/* Step-by-Step Telegram Guide (Mobile placement at bottom of controls) */}
+              <div className="block lg:hidden pt-2">
+                <TelegramBotGuide />
+              </div>
             </div>
           </div>
         )}
