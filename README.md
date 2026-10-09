@@ -60,21 +60,6 @@ This web application strictly adheres to the official [Telegram Video Stickers T
 
 ---
 
-## ❓ Frequently Asked Questions & Safety
-
-### ⚠️ Will using or hosting this web application cause me to get banned?
-
-**No, absolutely not.** Here is why you are completely safe:
-
-1. **Telegram Official Feature**: Telegram officially designed, released, and actively promotes video stickers. Their developer documentation explicitly encourages users and third-party tools to generate compliant VP9 WebM stickers to use with their official bot, [@Stickers](https://t.me/Stickers).
-2. **No Telegram API Abuse**: This application does not connect to or automate your Telegram account. It is simply a local file converter. You download the final `.webm` file and send it manually to `@Stickers` just like any regular sticker pack author.
-3. **100% Client-Side Privacy**: Because the processing runs entirely in your local browser through JavaScript and WebCodecs, no media files are stored on any backend server.
-4. **Hosting Safety (GitHub Pages)**: The code is open-source and complies with GitHub Pages Acceptable Use Policies. There are no backend scraping bots, no cryptomining, and no copyrighted media distribution.
-
-> **Note on General Content Policy**: Like any Telegram upload, make sure the videos or GIFs you personally choose to upload do not violate Telegram's general Terms of Service (e.g. copyright infringement or harmful material). The converter itself is 100% compliant.
-
----
-
 ## 🚀 How to Add Your Sticker to Telegram
 
 Once you download your converted `.webm` file from the app, follow these simple steps:
